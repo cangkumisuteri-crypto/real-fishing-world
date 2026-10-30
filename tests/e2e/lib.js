@@ -113,7 +113,7 @@ export class Game {
     Object.assign(this, { page, context, browserName, testInfo });
     this.useCdp = browserName === 'chromium';
     this.touch = new TouchSim(this);
-    this.errors = [];
+    this.errors = []; this.audioErrors = []; // headless WebKit has no audio device: the uncaught audio-resume rejection is tracked separately (asserted only by QA-15)
     this.warnings = [];
     this.calib = null;
     this.loc = {};
@@ -128,6 +128,11 @@ export class Game {
   }
   async init() {
     await this.page.addInitScript(INIT);
+    // AUDIO SHIELD (harness, not product): headless WebKit has no audio device, so AudioContext.resume() rejects and the build's global
+    // unhandledrejection handler opens the full-screen #err overlay, which blocks every touch. Finding BUG-A is asserted by QA-15 and QA-X10
+    // (shield OFF); all other tests swallow that one rejection in the capture phase so the rest of the build can still be audited.
+    this.shield = !/QA-15|QA-X10/.test(this.testInfo.title);
+    if (this.shield) await this.page.addInitScript(() => { window.addEventListener('unhandledrejection', (e) => { if (/audio device/i.test(String(e.reason && (e.reason.message || e.reason)))) { e.preventDefault(); e.stopImmediatePropagation(); } }, true); window.addEventListener('error', (e) => { if (/audio device/i.test(e.message || '')) { e.stopImmediatePropagation(); } }, true); });
     const { page } = this;
     const ignorable = (u) => /favicon\.ico|apple-touch-icon/.test(u || '');
     page.on('console', (m) => {
@@ -135,7 +140,7 @@ export class Game {
       if (m.type() === 'error' && !ignorable(loc) && !ignorable(m.text())) this.errors.push(`console.error: ${m.text()} @ ${loc}`);
       else if (m.type() === 'warning') this.warnings.push(m.text());
     });
-    page.on('pageerror', (e) => this.errors.push(`pageerror: ${e.message}`));
+    page.on('pageerror', (e) => { const m = `pageerror: ${e.message}`; if (/Failed to start the audio device/i.test(e.message)) { this.audioErrors.push(m); this.testInfo.annotations.push({ type: 'audio-pageerror', description: e.message }); } else this.errors.push(m); });
     page.on('requestfailed', (r) => { const f = r.failure()?.errorText || ''; if (!ignorable(r.url()) && !/ERR_ABORTED|cancelled|aborted/i.test(f)) this.errors.push(`requestfailed: ${r.url()} ${f}`); });
     page.on('response', (r) => { if (r.status() >= 400 && !ignorable(r.url())) this.errors.push(`http ${r.status()}: ${r.url()}`); });
     page.on('crash', () => this.errors.push('page crashed'));

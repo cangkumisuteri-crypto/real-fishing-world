@@ -131,7 +131,7 @@ export function buildProps(map: MapData, q: PropsQuality) {
   tetra.name = 'tetrapods'; group.add(tetra);
 
   // ---- 岩 ----
-  const rg = new THREE.IcosahedronGeometry(0.75, 0).toNonIndexed();
+  const rg = new THREE.IcosahedronGeometry(0.75, 0);
   { const p = rg.getAttribute('position'); for (let i = 0; i < p.count; i++) { const k = 1 + 0.18 * Math.sin(p.getX(i) * 7.1 + p.getZ(i) * 5.3 + p.getY(i) * 3.7); p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k); } rg.computeVertexNormals(); }
   const rockMesh = new THREE.InstancedMesh(rg, new THREE.MeshLambertMaterial({ color: 0xffffff }), map.rocks.length);
   { const m = new THREE.Matrix4(), qn = new THREE.Quaternion(), e = new THREE.Euler(); const c = new THREE.Color();

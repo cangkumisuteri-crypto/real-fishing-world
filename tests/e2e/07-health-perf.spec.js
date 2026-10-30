@@ -18,7 +18,7 @@ test('QA-15 zero console / page errors across a full play session', async ({ gam
   await page.reload(); await g.waitPlayVisible(); await g.tap(g.loc.play); await g.waitPlaying(); await sleep(1500);
   await g.testInfo.attach('warnings.txt', { body: g.warnings.join('\n') || '(none)', contentType: 'text/plain' });
   g.note('console warnings (advisory)', g.warnings.length);
-  expect(g.errors, 'console.error / pageerror / failed request / HTTP>=400 during the session').toEqual([]);
+  expect([...g.errors, ...g.audioErrors], 'console.error / pageerror / failed request / HTTP>=400 during the session').toEqual([]);
 });
 
 test('QA-16 basic perf sample — EMULATION ONLY, NOT real-iPhone fps', async ({ game: g, page, browserName, context }) => {

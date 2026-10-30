@@ -237,4 +237,16 @@ test.describe('BREAK-IT adversarial', () => {
     expect(results.filter((r) => r.bad.length), 'a poisoned save put the player somewhere illegal').toEqual([]);
     expect(g.errors).toEqual([]);
   });
+
+  test('QA-X10 audio failure must not block the game (AudioContext.resume() rejection, no audio device / interrupted session)', async ({ game: g }) => {
+    // shield OFF for this test. On Chromium the audio device exists, so we also force the rejection to make the check meaningful everywhere.
+    await g.page.addInitScript(() => { const AC = window.AudioContext || window.webkitAudioContext; if (AC) { const r = AC.prototype.resume; AC.prototype.resume = function () { return Promise.reject(new DOMException('Failed to start the audio device', 'InvalidStateError')); }; } });
+    await g.start(); await sleep(800);
+    const open = await g.page.evaluate(() => document.querySelector('#err')?.classList.contains('open') ?? false);
+    await g.testInfo.attach('x10.png', { body: await g.page.screenshot(), contentType: 'image/png' });
+    await shot(g, 'x10-audio-failure');
+    expect(open, 'BUG-A: an audio failure opened the full-screen fatal-error overlay (#err.open), which blocks all touch input').toBe(false);
+    await g.stickDown(0, 1); await sleep(600); const d = await moved(g, 700); await g.stickUp();
+    expect(d, 'player cannot move after an audio failure').toBeGreaterThan(0.2);
+  });
 });

@@ -18,7 +18,7 @@ export class Sfx {
         const n = this.ctx.sampleRate * 1; const b = this.ctx.createBuffer(1, n, this.ctx.sampleRate); const d = b.getChannelData(0);
         for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.noiseBuf = b;
       }
-      if (this.ctx.state === 'suspended') void this.ctx.resume();
+      if (this.ctx.state === 'suspended') { try { const p = this.ctx.resume(); if (p && p.catch) p.catch(() => { /* 音声デバイスが無い・使えない環境でも落とさない */ }); } catch { /* 無視 */ } }
     } catch { /* ignore */ }
   }
   private count(k: string) { this.counts[k] = (this.counts[k] ?? 0) + 1; }
