@@ -1,14 +1,15 @@
-// Usage: node tests/report.mjs [out/results.json] > RESULTS.md
+// Usage: node tests/report.mjs tests/out/results.local-wk.json tests/out/results.local-cr.json tests/out/results.live-cr.json > tests/RESULTS.md
 // Maps Playwright JSON results -> pass / fail / untested per QA item per project.
 // skipped ("UNTESTED: ...") => untested. Annotations "weak-evidence" are surfaced.
 import fs from 'node:fs';
-const file = process.argv[2] || new URL('./out/results.json', import.meta.url).pathname;
-const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+const files = process.argv.slice(2).length ? process.argv.slice(2) : [new URL('./out/results.json', import.meta.url).pathname];
+const file = files.join(', ');
 const rows = new Map(); const projects = new Set(); const notes = [];
+let TAG = '';
 const walk = (s) => {
   for (const sp of s.specs || []) for (const t of sp.tests || []) {
     const id = (sp.title.match(/QA-\w+/) || [sp.title])[0];
-    const p = t.projectName; projects.add(p);
+    const p = (TAG ? TAG + ' / ' : '') + t.projectName; projects.add(p);
     const r = t.results[t.results.length - 1] || {};
     let st = t.status === 'skipped' || r.status === 'skipped' ? 'untested'
       : (t.status === 'expected' ? 'pass' : t.status === 'flaky' ? 'pass(flaky)' : 'fail');
@@ -21,7 +22,7 @@ const walk = (s) => {
   }
   (s.suites || []).forEach(walk);
 };
-(j.suites || []).forEach(walk);
+for (const f of files) { TAG = (f.match(/results\.([\w-]+)\.json$/) || [])[1] || ''; JSON.parse(fs.readFileSync(f, 'utf8')).suites.forEach(walk); }
 const P = [...projects];
 const icon = { pass: 'PASS', fail: 'FAIL', untested: 'untested', 'pass(flaky)': 'PASS(flaky)', '': '-' };
 let out = `# QA Phase 1 results\n\nSource: ${file}\nGenerated: ${new Date().toString()}\n\n`;

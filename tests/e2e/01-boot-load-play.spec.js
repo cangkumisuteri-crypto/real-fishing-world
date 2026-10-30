@@ -25,12 +25,12 @@ test.describe('QA-01..03 boot / loading / play', () => {
 
   test('QA-02 loading screen completes (and never hangs)', async ({ game: g, page }) => {
     const timeline = []; const t0 = Date.now();
-    await page.goto('/', { waitUntil: 'commit' });
+    await page.goto('./', { waitUntil: 'commit' });
     let ready = false;
     while (Date.now() - t0 < T.loadMaxMs + 15000) {
       const s = await g.state().catch(() => null);
-      const lv = await g.vis(g.loc.loading), pv = await g.vis(g.loc.play);
-      const prog = s?.loading?.progress ?? (await page.evaluate((sel) => { const e = document.querySelector(sel); if (!e) return null; const v = e.getAttribute('aria-valuenow') ?? e.value; return v == null ? null : +v; }, SEL.loadingBar).catch(() => null));
+      const lv = await g.vis(g.loc.loading), pv = (await g.vis(g.loc.play)) && (await g.loc.play.isEnabled().catch(() => false)); // Play exists disabled ("読み込み中…") during loading
+      const prog = s?.loading?.progress ?? (await page.evaluate(() => { const f = document.querySelector('#bar i'); if (f && f.parentElement) { const w = f.getBoundingClientRect().width / (f.parentElement.getBoundingClientRect().width || 1); return Math.round(w * 100); } return null; }).catch(() => null)) ?? (await page.evaluate((sel) => { const e = document.querySelector(sel); if (!e) return null; const v = e.getAttribute('aria-valuenow') ?? e.value; return v == null ? null : +v; }, SEL.loadingBar).catch(() => null));
       timeline.push({ t: Date.now() - t0, phase: s?.phase ?? null, loadingVisible: lv, playVisible: pv, progress: prog });
       if (pv || s?.phase === 'title' || s?.phase === 'playing') { ready = true; break; }
       await sleep(120);
@@ -44,7 +44,11 @@ test.describe('QA-01..03 boot / loading / play', () => {
     else g.weak('no loading progress hook/progressbar found: only checked that loading ends, not that progress is truthful');
     const sawLoading = timeline.some((x) => x.loadingVisible || x.phase === 'loading');
     g.note('loading-screen-observed', sawLoading ? 'yes' : 'no (loaded faster than polling, or no loading element)');
-    await expect(g.loc.loading, 'loading overlay must be gone when Play is shown').toBeHidden();
+    // In this build the Play button lives INSIDE #loading (title = loading overlay + enabled Play), so: Play must become enabled & labelled,
+    // the bar must be full, and after tapping Play the overlay must be gone.
+    await expect(g.loc.play, 'Play must be enabled once loading ends').toBeEnabled();
+    if (progs.length) expect(progs.at(-1), 'loading bar should end full').toBeGreaterThanOrEqual(95);
+    await g.tap(g.loc.play); await expect(g.loc.loading, 'loading overlay must be gone after Play').toBeHidden();
     expect(g.errors).toEqual([]);
   });
 
@@ -53,7 +57,7 @@ test.describe('QA-01..03 boot / loading / play', () => {
     const cdp = await context.newCDPSession(page);
     await cdp.send('Network.enable');
     await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 150, downloadThroughput: (1.6 * 1024 * 1024) / 8, uploadThroughput: (750 * 1024) / 8 });
-    const t0 = Date.now(); await page.goto('/');
+    const t0 = Date.now(); await page.goto('./');
     await g.waitPlayVisible(90000);
     g.note('time-to-play-ms @ slow-4G emulation', Date.now() - t0);
     expect(g.errors).toEqual([]);

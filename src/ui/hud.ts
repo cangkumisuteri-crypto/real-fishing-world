@@ -17,7 +17,9 @@ export interface HudCallbacks {
 
 export class Hud {
   private toastTimer = 0;
-  private panelMode: 'map' | 'bag' | 'menu' | null = null;
+  private panelMode: 'map' | 'zukan' | 'rig' | 'menu' | null = null;
+  /** 図鑑・仕掛けパネルの中身（fishui / controller が登録） */
+  renderers: Partial<Record<'zukan' | 'rig', (body: HTMLElement) => void>> = {};
   private mapTimer = 0;
   onPanel: (open: boolean) => void = () => {};
   constructor(private cb: HudCallbacks, private settings: () => Settings, private mini: Minimap) {
@@ -26,10 +28,9 @@ export class Hud {
     on('btnExit', () => cb.onExit());
     on('btnCam', () => cb.onCam());
     on('btnMap', () => this.open('map'));
-    on('btnBag', () => this.open('bag'));
+    on('btnBag', () => this.open('zukan'));
     on('btnMenu', () => this.open('menu'));
     on('panelClose', () => this.close());
-    for (const id of ['btnGear', 'btnReel', 'btnBait', 'btnAction']) on(id, () => this.toast('この機能は Phase 2 以降で実装予定です'));
     on('btnRun', () => cb.onRun(!this.runOn));
   }
   private runOn = false;
@@ -57,7 +58,7 @@ export class Hud {
   }
 
   showFishing(site: FishingSite) {
-    $('chipFTop').textContent = 'ウキ釣り（準備中）';
+    $('chipFTop').textContent = 'ウキ釣り';
     $('chipFSub').textContent = site.spot && site.spot.def ? site.spot.def.name : '水際（自由な場所）';
     const lines = [
       `<b>釣り場</b>: ${site.spot ? site.spot.def.name : '水際（自由な場所）'}`,
@@ -65,11 +66,10 @@ export class Hud {
       `<b>海底</b>: ${site.zoneJa}${site.hole ? '（穴釣り向きの隙間）' : ''}`,
     ];
     if (site.nearTetra) lines.push('<span class="warn">⚠ テトラ帯は危険。上に乗らず安全な足場から。</span>');
-    lines.push('<small>キャスト・アタリ・ファイトは次のPhaseで実装。いまは構えのみ。</small>');
     $('infoCard').innerHTML = lines.join('<br>');
   }
 
-  open(kind: 'map' | 'bag' | 'menu') {
+  open(kind: 'map' | 'zukan' | 'rig' | 'menu') {
     this.panelMode = kind;
     const body = $('panelBody');
     $('panel').classList.add('open');
@@ -80,10 +80,8 @@ export class Hud {
         <div class="sec"><h3>凡例</h3>★ 釣り場（目印） ／ 赤い矢印＝あなた ／ <span style="color:#e8c440">■</span> 穴釣りの隙間 ／ <span style="color:#a9ada8">■</span> テトラ帯（立入禁止）<br>水際ならどこでも釣り開始できます。マーカーは任意のヒントです。</div>`;
       const draw = () => { const p = this.cb.playerPos(); const cv = $<HTMLCanvasElement>('mapCv'); if (cv) this.mini.draw(cv, p.x, p.z, p.yaw); };
       draw(); this.mapTimer = window.setInterval(draw, 250);
-    } else if (kind === 'bag') {
-      body.innerHTML = `<h2>所持品<span class="tag">未実装</span></h2>
-        <div class="sec">ここは「所持品」画面の枠だけです（Phase 1）。<br>竿・リール・エサ・クーラーボックス・釣果などは Phase 3 以降で実装予定です。</div>
-        <div class="sec"><h3>いまの装備（表示のみ）</h3>手持ちの竿：ノーマルロッド（見た目のみ）</div>`;
+    } else if (kind === 'zukan' || kind === 'rig') {
+      this.renderers[kind]?.(body);
     } else {
       this.renderMenu();
     }
@@ -99,23 +97,27 @@ export class Hud {
       <div class="sec"><h3>移動速度 <span id="vSpeed">${s.moveSpeed.toFixed(1)}×</span></h3><input id="rngSpeed" type="range" min="0.6" max="1.6" step="0.1" value="${s.moveSpeed}">
         <h3 style="margin-top:8px">視点の感度 <span id="vLook">${s.lookSens.toFixed(1)}×</span></h3><input id="rngLook" type="range" min="0.5" max="2" step="0.1" value="${s.lookSens}"></div>
       <div class="sec"><h3>常に走る</h3>${seg('alwaysRun', [['1', 'ON（常に走る）'], ['0', 'OFF（歩き）']], s.alwaysRun ? '1' : '0')}<div style="font-size:12px;opacity:.8">ONにすると、起動時と設定変更時に「走る」ロックがONになります。画面の「走る」ボタンでも切り替えられます（走る速さは歩きの約2倍）。</div></div>
+      <div class="sec"><h3>効果音</h3>${seg('sound', [['1', 'ON'], ['0', 'OFF']], s.sound ? '1' : '0')}<div style="font-size:12px;opacity:.8">アタリ音・巻く音など。iPhoneは本体のマナーモード（消音）だと鳴らないことがあります。</div></div>
+      <div class="sec"><h3>振動・画面の揺れ</h3>${seg('vibration', [['1', 'ON'], ['0', 'OFF']], s.vibration ? '1' : '0')}<div style="font-size:12px;opacity:.8">対応端末は振動します。iPhone Safari は振動に非対応のため、代わりに画面が揺れます。</div></div>
       <div class="sec"><h3>釣り場マーカー</h3>${seg('hints', [['1', '表示'], ['0', '非表示']], s.hints ? '1' : '0')}</div>
-      <div class="sec"><h3>セーブ</h3>設定と最後の位置を端末内（localStorage）に保存します。<span style="opacity:.8">状態: ${inf.saveStatus}</span>
+      <div class="sec"><h3>セーブ</h3>設定・図鑑・釣果・最後の位置を端末内（localStorage）に保存します。<span style="opacity:.8">状態: ${inf.saveStatus}</span>
         <div class="row"><button class="act" id="btnSaveNow">いま保存</button><button class="act" id="btnResetPos">スポーン地点へ戻る</button><button class="act danger" id="btnClear">セーブ削除</button></div></div>
-      <div class="sec"><h3>釣法（準備中）</h3>${FISHING_METHODS.map((m) => `${m.ja}<span class="tag">${m.phase}</span>`).join('<br>')}</div>
+      <div class="sec"><h3>釣法</h3>${FISHING_METHODS.map((m) => `${m.ja}<span class="tag">${m.phase}</span>`).join('<br>')}</div>
       <div class="sec"><h3>現在の情報</h3>
         時刻: ${inf.timeLabel}（${inf.timeDemo ? 'デモ指定' : '端末の現地時刻を使用'}）<br>
-        天気・潮・水温: <b>デモ固定</b>（実データ連動は未実装）<br>
+        天気・潮・水温・風: <b>デモ値</b>（実データ連動は未実装。時刻は端末の時刻）<br>
         FPS(計測): <span id="vFps">${inf.fps ? inf.fps.toFixed(0) : '-'}</span> ／ 描画 ${inf.calls} calls ／ ${(inf.tris / 1000).toFixed(0)}k tris ／ DPR ${inf.dpr.toFixed(2)}<br>
         <small>${inf.renderer}</small></div>
-      <div class="sec"><h3>このバージョンについて</h3>REAL FISHING WORLD v0.1.0（Phase 1）。架空の港「波戸浦港」を歩ける3Dプレビューです。<br>
-        <b>未実装</b>: キャスト／アタリ／ファイト／魚の生成／釣果・図鑑・経済／天気・潮・実データ／ルアー・穴釣り／ショップ・拠点の中身／音。<br>
-        <b>未検証</b>: iPhone 実機での動作・fps。</div>`;
+      <div class="sec"><h3>このバージョンについて</h3>REAL FISHING WORLD v0.2.0（Phase 2：ウキ釣り）。架空の港「波戸浦港」です。<br>
+        <b>未実装</b>: 実データ連動の天気・潮・水温／ルアー・穴釣り／ショップ・拠点／経済・レベル／見た目のリアル化（Phase 3 以降）。<br>
+        <b>未検証</b>: iPhone 実機での操作感・fps・音・振動。</div>`;
     const q = (n: string) => body.querySelectorAll<HTMLButtonElement>(`[data-seg="${n}"] button`);
     const bind = (n: string, f: (v: string) => void) => q(n).forEach((b) => b.addEventListener('click', () => { f(b.dataset.v!); q(n).forEach((x) => x.classList.toggle('on', x === b)); }));
     bind('quality', (v) => this.change({ quality: v as QualityId }));
     bind('camera', (v) => this.change({ camera: v as 'first' | 'third' }));
     bind('alwaysRun', (v) => this.change({ alwaysRun: v === '1' }));
+    bind('sound', (v) => this.change({ sound: v === '1' }));
+    bind('vibration', (v) => this.change({ vibration: v === '1' }));
     bind('hints', (v) => this.change({ hints: v === '1' }));
     $<HTMLInputElement>('rngSpeed').addEventListener('input', (e) => { const v = parseFloat((e.target as HTMLInputElement).value); $('vSpeed').textContent = v.toFixed(1) + '×'; this.change({ moveSpeed: v }); });
     $<HTMLInputElement>('rngLook').addEventListener('input', (e) => { const v = parseFloat((e.target as HTMLInputElement).value); $('vLook').textContent = v.toFixed(1) + '×'; this.change({ lookSens: v }); });

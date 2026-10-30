@@ -17,7 +17,7 @@ test.describe('QA-08..10 fishing UI', () => {
     const gt = g.gt;
     const dW = async () => { const p = await g.pos(); return gt.dWater(p.x, p.z); };
     // far from water: hidden
-    const inland = gt.inlandSpot(8);
+    const spot = gt.edgeSpots(1)[0]; const inland = gt.approachFrom(spot, 5) || gt.inlandSpot(8);
     if (inland && (await g.hook('teleport'))) await g.teleport(inland.x, inland.z);
     await sleep(500);
     const d0 = await dW(); g.note('start distance to water (m)', d0.toFixed(1));
@@ -25,10 +25,10 @@ test.describe('QA-08..10 fishing UI', () => {
     if (d0 > T.edgeMax + 1) expect(await g.fishStartActive(), `釣り開始 must be hidden or disabled ${d0.toFixed(1)} m from water`).toBe(false);
     else g.weak(`spawn is only ${d0.toFixed(1)} m from water: far-from-water negative case not exercised`);
     // walk to the edge while sampling visibility vs. ground-truth distance
-    const spot = gt.edgeSpots(1)[0]; const samples = [];
+    const samples = [];
     const ctl = { stop: false };
     const poll = (async () => { while (!ctl.stop) { const p = await g.pos(); samples.push({ d: gt.dWater(p.x, p.z), v: await g.fishStartActive(), t: Date.now() }); await sleep(120); } })();
-    const r = await g.walkToward(spot.x, spot.z, { timeout: 25000, arrive: 0.5, recorder: false });
+    const r = await g.walkRoute(spot, { arrive: 0.5 });
     await sleep(900); ctl.stop = true; await poll;
     await g.testInfo.attach('edge-samples.json', { body: JSON.stringify({ spot, r: r.reason, samples: samples.filter((_, i) => i % 3 === 0) }), contentType: 'application/json' });
     expect(r.reason, 'could not reach the shoreline spot (collision/pathing problem?)').toBe('arrived');

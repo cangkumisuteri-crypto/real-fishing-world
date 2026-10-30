@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0b1424" />
 <meta name="format-detection" content="telephone=no" />
-<title>REAL FISHING WORLD — 波戸浦港（Phase 1 プレビュー）</title>
+<title>REAL FISHING WORLD — 波戸浦港（Phase 2 ウキ釣り）</title>
 <style>
 :root{
   --sa-t: env(safe-area-inset-top, 0px); --sa-r: env(safe-area-inset-right, 0px);
@@ -74,6 +74,60 @@ body[data-mode="move"] .fs,body[data-mode="fish"] .mv{display:none!important}
   border:1px solid rgba(255,255,255,.3);font-size:14px;font-weight:700;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;text-shadow:0 1px 2px #000}
 #toast.show{opacity:1}
 #hintLine{position:absolute;left:0;right:0;bottom:calc(var(--sa-b) + 4px);text-align:center;font-size:10px;opacity:.7;pointer-events:none;text-shadow:0 1px 2px #000}
+
+/* ---- Phase 2 釣りUI ---- */
+.ph{display:none}
+.ph.show{display:flex}
+#btnReel{touch-action:none;background:rgba(12,22,38,.7)}
+#btnReel.hold{background:var(--accent);border-color:#fff}
+#btnAction.go{background:var(--accent);border-color:#fff}
+#btnAction.alert{background:var(--danger);border-color:#fff;animation:pulse .35s infinite alternate}
+#btnAction.hold{background:var(--accent);box-shadow:0 0 0 4px rgba(255,138,61,.5)}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.1)}}
+#btnAction .lb{font-size:13px}
+#btnBait .lb{font-size:11px}
+.sm{width:44px;height:44px;border-radius:12px;font-size:22px;font-weight:800}
+#dragPlus{left:calc(var(--sa-l) + 132px);bottom:calc(var(--sa-b) + 32px + 44px + 4px + 32px + 4px)}
+#dragVal{left:calc(var(--sa-l) + 132px);bottom:calc(var(--sa-b) + 32px + 44px + 4px);width:44px;height:32px;position:absolute;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:8px;background:var(--btn);border:1px solid rgba(255,255,255,.3);font-size:9px;line-height:1.05;font-weight:700;text-shadow:0 1px 2px #000}
+#dragVal b{font-size:13px}
+#dragVal.ok b{color:#7CE0A0}#dragVal.hi b{color:#ff9a7a}#dragVal.lo b{color:#ffd37a}
+#dragMinus{left:calc(var(--sa-l) + 132px);bottom:calc(var(--sa-b) + 32px)}
+.gauge{position:absolute;top:calc(var(--sa-t) + 64px);left:50%;transform:translateX(-50%);width:min(342px,calc(100vw - var(--sa-l) - var(--sa-r) - 32px));height:22px;
+  border-radius:11px;background:rgba(8,16,30,.7);border:1.5px solid rgba(255,255,255,.55);overflow:hidden;align-items:center;justify-content:center;font-size:12px;font-weight:800;text-shadow:0 1px 2px #000}
+.gauge i{position:absolute;left:0;top:0;bottom:0;width:0;background:#3fcf7a;transition:background .15s}
+.gauge span{position:relative}
+#tenGauge.warn i{background:#f0c040}#tenGauge.danger i{background:#E5484D}#tenGauge.blink{animation:blink .22s infinite alternate}
+@keyframes blink{from{opacity:1}to{opacity:.45}}
+#powerGauge i{background:#FF8A3D}
+#fightInfo{position:absolute;top:calc(var(--sa-t) + 64px + 26px);left:50%;transform:translateX(-50%);width:min(342px,calc(100vw - var(--sa-l) - var(--sa-r) - 32px));height:40px;
+  padding:3px 8px;border-radius:10px;background:var(--btn);border:1px solid rgba(255,255,255,.25);flex-direction:column;justify-content:center;align-items:center;font-size:12px;line-height:1.3;font-weight:700;text-shadow:0 1px 2px #000;text-align:center;overflow:hidden}
+#rodInd{position:absolute;right:calc(var(--sa-r) + 20px + (var(--mainF) - 44px)/2);bottom:calc(var(--sa-b) + 32px + var(--mainF) + 12px);width:44px;height:104px;border-radius:10px;background:var(--btn);border:1px solid rgba(255,255,255,.3);
+  flex-direction:column;align-items:center;justify-content:flex-start;font-size:10px;font-weight:700;padding-top:3px;text-shadow:0 1px 2px #000}
+#rodInd .bar{position:relative;flex:1;width:6px;margin:3px 0 4px;border-radius:3px;background:rgba(255,255,255,.3)}
+#rodInd .bar i{position:absolute;left:-5px;width:16px;height:5px;border-radius:2px;background:#FF8A3D;bottom:50%}
+#rodInd .bar u{position:absolute;left:-2px;width:10px;bottom:34%;height:22%;background:rgba(124,224,160,.55);border-radius:2px;text-decoration:none}
+#resultCard{position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:calc(var(--sa-b) + 14px);width:min(380px,calc(100vw - var(--sa-l) - var(--sa-r) - 24px));display:none;
+  padding:12px 14px;border-radius:16px;background:rgba(8,16,30,.9);border:1.5px solid rgba(255,255,255,.5);text-align:center;text-shadow:0 1px 2px #000;max-height:calc(100vh - var(--sa-t) - var(--sa-b) - 80px);overflow:auto;touch-action:pan-y}
+#resultCard.open{display:block}
+#resultCard h2{margin:0 0 4px;font-size:20px}
+#resultCard .big{font-size:26px;font-weight:800;color:#ffd37a;margin:2px 0}
+#resultCard p{margin:3px 0;font-size:13px;line-height:1.45}
+#resultCard .badge{display:inline-block;padding:2px 10px;border-radius:10px;background:#E5484D;font-size:12px;font-weight:800;margin-left:6px;vertical-align:middle}
+#resultCard .btns{display:flex;gap:10px;justify-content:center;margin-top:8px}
+#resultCard .btns button{flex:1;min-height:48px;border-radius:12px;font-weight:800;font-size:16px;background:rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.5)}
+#resultCard .btns button.pri{background:var(--accent);border-color:#fff}
+body[data-phase="result"] #toast{display:none}
+#panel .depthrow{display:flex;gap:10px;align-items:center;justify-content:center;margin:6px 0}
+#panel .depthrow button{width:56px;height:48px;border-radius:12px;background:rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.5);font-size:24px;font-weight:800}
+#panel .depthrow b{font-size:22px;min-width:84px;text-align:center}
+#panel .seg.col{flex-direction:column;align-items:stretch}
+#panel .seg.col button{text-align:left;line-height:1.35}
+#panel .seg button[disabled]{opacity:.4}
+#panel .seg small{display:block;font-weight:600;opacity:.85;font-size:12px}
+#panel table{width:100%;border-collapse:collapse;font-size:13px}
+#panel td,#panel th{padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);text-align:left}
+#panel .dim{opacity:.55}
 /* パネル */
 #panel{position:fixed;inset:0;z-index:40;background:rgba(6,12,22,.92);display:none;touch-action:pan-y;overflow:auto;-webkit-overflow-scrolling:touch;
   padding:calc(var(--sa-t) + 12px) calc(var(--sa-r) + 16px) calc(var(--sa-b) + 16px) calc(var(--sa-l) + 16px)}
@@ -121,28 +175,36 @@ body[data-mode="move"] .fs,body[data-mode="fish"] .mv{display:none!important}
   <button id="btnMap" class="btn tb mv" data-ui><span class="ic">🗺</span><span class="lb">マップ</span></button>
   <button id="btnCam" class="btn tb mv" data-ui><span class="ic">📷</span><span class="lb">視点</span></button>
   <button id="btnRun" class="btn mv" data-ui><span class="ic">🏃</span><span class="lb">走る</span></button>
-  <button id="btnBag" class="btn mv" data-ui><span class="ic">🎒</span><span class="lb">所持品</span></button>
+  <button id="btnBag" class="btn mv" data-ui><span class="ic">📖</span><span class="lb">図鑑</span></button>
   <button id="btnFish" class="btn main mv off" data-ui><span class="ic">🎣</span><span class="lb">釣り開始</span></button>
 
   <button id="btnExit" class="btn tb fs" data-ui><span class="ic">✕</span><span class="lb">やめる</span></button>
   <div id="chipF" class="chip fs" data-ui data-info><div id="chipFTop">ウキ釣り（準備中）</div><small id="chipFSub">波戸浦港</small></div>
-  <button id="btnGear" class="btn tb fs off" data-ui><span class="ic">⚙</span><span class="lb">仕掛け</span></button>
+  <button id="btnGear" class="btn tb fs" data-ui><span class="ic">⚙</span><span class="lb">仕掛け</span></button>
   <div id="infoCard" class="fs" data-ui data-info></div>
-  <button id="btnReel" class="btn fs off" data-ui><span class="ic">🎣</span><span class="lb">巻く（準備中）</span></button>
-  <button id="btnBait" class="btn fs off" data-ui><span class="ic">🪱</span><span class="lb">エサ</span></button>
-  <button id="btnAction" class="btn fs off" data-ui><span class="ic">🎯</span><span class="lb">キャスト</span></button>
+  <div id="tenGauge" class="gauge ph" data-ui data-info><i></i><span>テンション</span></div>
+  <div id="powerGauge" class="gauge ph" data-ui data-info><i></i><span>パワー</span></div>
+  <div id="fightInfo" class="ph" data-ui data-info></div>
+  <button id="btnReel" class="btn fs ph" data-ui><span class="ic">🌀</span><span class="lb">巻く</span></button>
+  <button id="dragPlus" class="btn sm fs ph" data-ui aria-label="ドラグを強く">＋</button>
+  <div id="dragVal" class="fs ph" data-ui data-info><span>ドラグ</span><b>0.75</b></div>
+  <button id="dragMinus" class="btn sm fs ph" data-ui aria-label="ドラグを弱く">−</button>
+  <div id="rodInd" class="fs ph" data-ui data-info><span id="rodTxt">竿50°</span><div class="bar"><u></u><i></i></div></div>
+  <button id="btnBait" class="btn fs ph show" data-ui><span class="ic">📏</span><span class="lb">ウキ下</span></button>
+  <button id="btnAction" class="btn fs ph show" data-ui><span class="ic">🎯</span><span class="lb">キャスト</span></button>
 </div>
 <div id="toast"></div>
+<div id="resultCard" role="dialog" aria-live="polite"></div>
 <div id="panel"><button class="close" id="panelClose">閉じる</button><div id="panelBody"></div></div>
 
 <div id="loading">
   <h1>REAL FISHING WORLD</h1>
-  <div class="sub">波戸浦港 — Phase 1 プレビュー（港を歩こう）</div>
+  <div class="sub">波戸浦港 — Phase 2：ウキ釣り</div>
   <div id="bar"><i></i></div>
   <div id="loadMsg">起動中…</div>
   <button id="play" disabled>読み込み中…</button>
-  <div class="how">左半分をドラッグ＝移動 ／ 右半分をスワイプ＝視点<br>水辺で「釣り開始」。釣りはまだできません（構えるところまで）。<br>PC: WASD移動・ドラッグで視点・Fで釣り開始</div>
-  <div class="ver">v0.1.0 Phase 1 ・ 架空の港です</div>
+  <div class="how">左半分をドラッグ＝移動 ／ 右半分をスワイプ＝視点<br>水辺で「釣り開始」→ キャスト → ウキを見て、沈んだら「合わせ」→ 巻いて寄せよう。<br>PC: WASD移動・ドラッグで視点・Fで釣り開始</div>
+  <div class="ver">v0.2.0 Phase 2 ・ 架空の港です</div>
 </div>
 <div id="err"><h2>⚠ エラーが発生しました</h2><div id="errMsg"></div><pre id="errStack"></pre>
   <button onclick="location.reload()">再読み込み</button><button onclick="document.getElementById('err').classList.remove('open')">閉じる</button></div>

@@ -23,5 +23,51 @@ export function installQaHooks(c: any) {
     startFishing() { c.startFishing(); },
     exitFishing() { c.exitFishing(); },
     saveNow() { return c.saveNow(); },
+    fishing: {
+      state() {
+        const f = c.fishing, s = f.session, v = f.view, cam = c.rig.camera;
+        const fp = v.floatPos.clone().project(cam);
+        const ui = f.ui.e; const vis = (el: HTMLElement) => el.classList.contains('show') || (getComputedStyle(el).display !== 'none');
+        return {
+          active: f.active, phase: s.phase, snap: s.snapshot(), rig: { ...s.rig }, aimPower: s.aimPower, drag: s.inp.drag, theta: s.inp.theta, reel: s.inp.reel, steer: s.inp.steer,
+          floatShown: v.floatShown, floatNdc: { x: fp.x, y: fp.y, z: fp.z }, shadows: v.shadowCount, rodBend: v.rodBend, catchShown: v.catchShown, fightFish: v.fightFishShown,
+          fx: s.fx, fz: s.fz, seabed: s.seabed, baitLife: s.baitLife, snag: s.snag, stats: { ...s.stats }, fight: s.fight ? { sp: s.fight.sp.id, nameJa: s.fight.sp.nameJa, dist: s.fight.dist, tension: s.fight.tension, mode: s.fight.mode, S: s.fight.S, result: s.fight.result, sizeCm: s.fight.sizeCm } : null,
+          sfx: { ...f.sfx.counts, state: f.sfx.state, enabled: f.sfx.enabled }, hap: { ...f.hap.counts, shake: f.hap.shake, canVibrate: f.hap.canVibrate, enabled: f.hap.enabled },
+          biteEvents: f.biteEvents, inp: { flickOn: c.input.flickOn, lookId: c.input.lookId, fightMode: c.input.fightMode, enabled: c.input.enabled }, resultShown: f.resultShown, resultText: f.ui.e.result.textContent, log: f.log.slice(-30),
+          ui: { action: ui.action.textContent, actionClass: ui.action.className, reel: vis(ui.reel), ten: vis(ui.ten), power: vis(ui.power), rod: vis(ui.rod), bait: vis(ui.bait), info: ui.info.textContent, card: ui.card.textContent },
+          save: { zukan: f.d.data.zukan, catchLog: f.d.data.catchLog.length, stats: { ...f.d.data.stats }, lastRig: f.d.data.lastRig },
+        };
+      },
+      cast(power = 0.6) { const f = c.fishing; if (f.session.phase === 'ready') f.session.startAim(); return f.session.cast(power, c.player.yaw); },
+      act() { c.fishing.act(); },
+      hookset() { c.fishing.session.hookset(); },
+      setRig(p: any) { c.fishing.session.setRig(p); c.fishing.d.data.lastRig = { ...c.fishing.session.rig }; },
+      freeze(on: boolean) { guard(); c.fishing.qaFreeze = on; },
+      /** 試験用ボット：完全な腕前でファイトを進める。結果を返す */
+      bot(maxSec = 150, opts: any = {}) {
+        guard(); const f = c.fishing, s = f.session; const T = opts.tens ?? 0.7;
+        let n = 0;
+        while (s.phase === 'fight' && n < maxSec * 10) {
+          const fi = s.fight!; const m = fi.mode;
+          f.setReel(opts.reelAlways ? true : !(m === 'run' || m === 'dive' || m === 'wedged' || m === 'headshake') && fi.tension < T);
+          f.qaPose = { theta: opts.theta ?? 55, steer: m === 'side_run' ? (fi.bearing > 0 ? -1 : 1) : 0 };
+          if (opts.drag) s.inp.drag = opts.drag;
+          f.advance(0.1); n++;
+        }
+        f.setReel(false); f.qaPose = { theta: null, steer: null };
+        return { phase: s.phase, result: s.lastResult ? s.lastResult.result : null, reason: s.lastResult ? s.lastResult.reason : null, sec: n / 10 };
+      },
+      advance(sec: number) { guard(); c.fishing.advance(sec); },
+      forceBite(id: string, cm?: number) { guard(); return c.fishing.session.forceBite(id, cm); },
+      pose(theta: number | null, steer: number | null) { guard(); c.fishing.qaPose = { theta, steer }; },
+      drag(v: number) { c.fishing.session.inp.drag = v; },
+      reel(on: boolean) { c.fishing.setReel(on); },
+      raise(on: boolean) { c.fishing.setRaise(on); },
+      dismiss(release = false) { c.fishing.closeResult(release); },
+      boost(v: number) { guard(); c.fishing.session.boost = v; },
+      setEnv(h: number) { guard(); c.fishing.session.setEnv(h); },
+      rodTip() { const t = c.fishing.view.tip.clone().project(c.rig.camera); return { x: t.x, y: t.y }; },
+      stored() { try { return JSON.parse(localStorage.getItem('realFishingWorld.save') || 'null'); } catch { return null; } },
+    },
   };
 }

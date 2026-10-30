@@ -1,6 +1,7 @@
-/* REAL FISHING WORLD Phase1 QA.  node tests/qa.mjs [--url=https://...] [--only=webkit-iphone13] [--out=tests/out]
+/* REAL FISHING WORLD Phase1+2 QA.  node tests/qa.mjs [--url=https://...] [--only=webkit-iphone13] [--out=tests/out]
  * 注意: ヘッドレス＋ソフトウェアGL。FPSは実機の値ではない。実機iPhoneは未検証。 */
 import fs from 'fs'; import path from 'path';
+import { fishFlow, phaseLayouts } from './fishflow.mjs';
 import { webkit, chromium, devices, serve, sleep, WK_ENV, CHROMIUM_ARGS, collect } from './lib.mjs';
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.split('=').slice(1).join('=') : d; };
 const OUT = path.resolve(arg('out', 'tests/out')); fs.mkdirSync(OUT, { recursive: true });
@@ -54,7 +55,7 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
   try {
     // ---- 1. boot ----
     const t0 = Date.now();
-    await page.goto(Q(opts.q ?? '&q=mid&t=14'));
+    await page.goto(Q(opts.q ?? '&q=mid&t=14&seed=7'));
     const loadingVisible = await page.evaluate(() => getComputedStyle(document.getElementById('loading')).display !== 'none');
     rec(suite, 'loading screen visible at start', loadingVisible);
     await waitBoot(page);
@@ -146,7 +147,7 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
       await page.screenshot({ path: path.join(OUT, `${suite}_05_menu_alwaysrun.png`) });
       await closeMenu();
       rec(suite, 'menu: 常に走る setting exists and turns run ON immediately (button shows ON)', hasSet && s3.alwaysRun && s3.run && r3.on, `alwaysRun=${s3.alwaysRun} run=${s3.run}`);
-      rec(suite, 'menu: 常に走る is saved in settings (localStorage)', sv.version === 1 && sv.settings?.alwaysRun === true, JSON.stringify(sv.settings || {}).slice(0, 120));
+      rec(suite, 'menu: 常に走る is saved in settings (localStorage)', sv.version === 2 && sv.settings?.alwaysRun === true, JSON.stringify(sv.settings || {}).slice(0, 120));
       await page.goto(Q('&t=14')); await waitBoot(page);
       const s4 = await st(page); const r4 = await runBtn();
       rec(suite, 'menu: 常に走る persists across reload and run starts ON', s4.alwaysRun && s4.runLock && r4.on && r4.label === '走る ON', `alwaysRun=${s4.alwaysRun} runLock=${s4.runLock} label=${r4.label}`);
@@ -217,6 +218,12 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
     const outFish = await until(page, () => window.__rfw.state().mode === 'move' && document.body.dataset.mode === 'move');
     rec(suite, 'fishing mode: exit returns to walking UI', outFish);
 
+    // ---- 6b. Phase2 ウキ釣りフロー ----
+    await fishFlow({ page, suite, rec, touch, until, OUT, Q, waitBoot });
+    await page.goto(Q('&q=mid&t=14&seed=7')); await waitBoot(page);
+    if (touch) await page.tap('#play'); else await page.click('#play');
+    await until(page, () => document.body.classList.contains('playing')); await sleep(600);
+
     // ---- 7. menu / map / bag panels ----
     for (const [btn, name] of [['#btnMap', 'map'], ['#btnBag', 'bag'], ['#btnMenu', 'menu']]) {
       if (touch) await page.tap(btn); else await page.click(btn);
@@ -240,7 +247,7 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
     await sleep(300); await page.evaluate(() => window.__rfw.saveNow());
     const raw = await page.evaluate(() => localStorage.getItem('realFishingWorld.save'));
     let parsed = null; try { parsed = JSON.parse(raw); } catch {}
-    rec(suite, 'save data is versioned {version:1,settings,position}', parsed && parsed.version === 1 && parsed.settings && parsed.position, raw ? raw.slice(0, 90) : 'null');
+    rec(suite, 'save data is versioned {version:2,settings,position,zukan,catchLog,stats}', parsed && parsed.version === 2 && parsed.zukan && parsed.catchLog && parsed.stats && parsed.settings && parsed.position, raw ? raw.slice(0, 90) : 'null');
     const before = await st(page);
     await page.goto(Q('&t=14')); await waitBoot(page);
     const after = await st(page);
@@ -262,6 +269,7 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
     await until(page, () => document.body.classList.contains('playing')); await sleep(1500);
     const sizes = opts.sizes || [[375, 667], [390, 844], [430, 932], [667, 375], [844, 390], [932, 430]];
     for (const [w, h] of sizes) await layoutCheck(page, suite, { width: w, height: h }, suite, true);
+    for (const [w, h] of (opts.p2sizes || [[390, 844], [844, 390]])) await phaseLayouts({ page, suite, rec, touch, until, OUT }, { width: w, height: h }, hudRects);
     // night / day sanity
     await page.setViewportSize({ width: sizes[1][0], height: sizes[1][1] });
 
@@ -284,9 +292,9 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
 
 const suites = {
   'webkit-iphone13': () => runSuite('webkit-iphone13', () => webkit.launch({ env: WK_ENV }), { ...devices['iPhone 13'] }),
-  'webkit-iphoneSE': () => runSuite('webkit-iphoneSE', () => webkit.launch({ env: WK_ENV }), { ...devices['iPhone SE'] }, { sizes: [[375, 667], [667, 375]] }),
+  'webkit-iphoneSE': () => runSuite('webkit-iphoneSE', () => webkit.launch({ env: WK_ENV }), { ...devices['iPhone SE'] }, { sizes: [[375, 667], [667, 375]], p2sizes: [[375, 667], [667, 375]] }),
   'chromium-touch': () => runSuite('chromium-touch', () => chromium.launch({ args: CHROMIUM_ARGS }), { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 }),
-  'chromium-desktop': () => runSuite('chromium-desktop', () => chromium.launch({ args: CHROMIUM_ARGS }), { viewport: { width: 1280, height: 720 } }, { sizes: [[1280, 720], [390, 844], [844, 390]] }),
+  'chromium-desktop': () => runSuite('chromium-desktop', () => chromium.launch({ args: CHROMIUM_ARGS }), { viewport: { width: 1280, height: 720 } }, { sizes: [[1280, 720], [390, 844], [844, 390]], p2sizes: [[1280, 720], [844, 390]] }),
 };
 for (const [k, f] of Object.entries(suites)) if (!ONLY || ONLY === k) await f();
 const failed = results.filter((r) => !r.ok);

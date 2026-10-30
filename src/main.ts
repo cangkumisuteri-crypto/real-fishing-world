@@ -15,6 +15,8 @@ import { computeSky, localHours, makeSkyState } from './systems/envtime';
 import { Hud } from './ui/hud';
 import { Minimap } from './ui/minimap';
 import { installQaHooks } from './qa/hooks';
+import { FishingController } from './fishing/controller';
+import { defaultSave } from './systems/save';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
@@ -92,7 +94,8 @@ async function boot() {
   let skyTimer = -1;
 
   const minimap = new Minimap(g, props.markers);
-  const snapshot = (): SaveData => ({ version: 1, settings, position: { x: player.x, z: player.z, yaw: player.yaw } });
+  const data: SaveData = saved.data; // 図鑑・釣果・統計・最後の仕掛けはこのオブジェクトを直接更新する
+  const snapshot = (): SaveData => { data.settings = settings; data.position = { x: player.x, z: player.z, yaw: player.yaw }; return data; };
   const saveNow = () => { const ok = writeSave(snapshot()); saveStatus = ok ? '保存OK' : '保存失敗'; return ok; };
 
   function applyQuality(q: QualityId) {
@@ -148,7 +151,7 @@ async function boot() {
     onSettings: (s) => {
       const qChanged = s.quality !== settings.quality;
       void prevAlways;
-      settings = s;
+      settings = s; fishing.applySettings(s);
       if (qChanged) { lastQualityChange = performance.now(); applyQuality(s.quality); }
       rig.setMode(s.camera);
       props.hints.visible = s.hints;
@@ -156,12 +159,18 @@ async function boot() {
       saveNow();
     },
     onSaveNow: () => saveNow(),
-    onClearSave: () => clearSave(),
+    onClearSave: () => { const ok = clearSave(); const d0 = defaultSave(ios); data.zukan = d0.zukan; data.catchLog = d0.catchLog; data.stats = d0.stats; data.lastRig = null; return ok; },
     onResetPos: () => { player.place(SPAWN.x, SPAWN.z, SPAWN.yaw); hud.toast('スポーン地点に戻りました'); saveNow(); },
     onRun: (v) => { input.setRunLock(v); hud.setRun(v); hud.toast(v ? '走る ON' : '走る OFF（歩き）', 1200); },
     info: () => ({ fps: fps.fps, quality: settings.quality, timeLabel: clockLabel(), timeDemo: tOverride != null, saveStatus, renderer: rendererName, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, dpr: renderer.getPixelRatio() }),
     playerPos: () => ({ x: player.x, z: player.z, yaw: player.yaw }),
   }, () => settings, minimap);
+  const seedQ = qs.get('seed');
+  const fishing = new FishingController({
+    scene, rig, input, player, hud, g, data, saveNow: () => saveNow(), hours: () => (tOverride != null ? tOverride : skyState.hours || localHours(null)),
+    seed: seedQ != null ? parseInt(seedQ, 10) >>> 0 : undefined, qa: QA,
+  });
+  fishing.applySettings(settings);
   hud.onPanel = (open) => { input.enabled = playing && !open; if (open) input.reset(); else saveNow(); };
   props.hints.visible = settings.hints;
   input.setRunLock(settings.alwaysRun); hud.setRun(settings.alwaysRun);
@@ -181,10 +190,13 @@ async function boot() {
     player.yaw = site.yaw; player.pitch = -0.38;
     rig.enterFishing(site.yaw);
     hud.setMode('fish'); hud.showFishing(site);
+    fishing.enter(site);
     saveNow();
   }
   function exitFishing() {
     if (mode !== 'fish') return;
+    if (!fishing.requestExit()) return;
+    fishing.leave();
     mode = 'move'; siteFrozen = null; input.lockMove = false; input.reset();
     rig.exitFishing(); player.pitch = 0;
     hud.setMode('move');
@@ -244,6 +256,7 @@ async function boot() {
     }
     if (tOverride == null && now - skyTimer > 1000) { skyTimer = now; applyTime(); }
     rig.update(player, dt);
+    fishing.update(dt, t, skyState.dayLight);
     sky.mesh.position.copy(rig.camera.position);
     sky.u.uTime.value = t;
     water.update(t, skyState, mode === 'fish' ? 1.0 : 1.0, scene.fog as THREE.Fog);
@@ -254,7 +267,7 @@ async function boot() {
 
   installQaHooks({
     qa: QA, player, g, rig, input, props, get mode() { return mode; }, get playing() { return playing; }, get site() { return site; },
-    fps, renderer, get settings() { return settings; }, saveNow, applyQuality, applyTime, setTime: (h: number | null) => { (window as any).__rfwT = h; }, get saveStatus() { return saveStatus; }, hud, startFishing, exitFishing,
+    fps, renderer, get settings() { return settings; }, saveNow, applyQuality, applyTime, setTime: (h: number | null) => { (window as any).__rfwT = h; }, get saveStatus() { return saveStatus; }, hud, startFishing, exitFishing, fishing,
     get frozen() { return siteFrozen; }, skyState, scene, WATER_Y,
   } as any);
 
@@ -265,7 +278,7 @@ async function boot() {
   (window as any).__rfwBooted = true;
   const start = () => {
     if (playing) return;
-    playing = true; input.enabled = true;
+    playing = true; input.enabled = true; fishing.sfx.unlock();
     $('loading').style.display = 'none';
     document.body.classList.add('playing');
     player.yaw = startPos.yaw; player.pitch = 0;

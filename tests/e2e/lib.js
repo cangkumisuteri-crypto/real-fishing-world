@@ -68,6 +68,14 @@ class TouchSim {
     } else if (process.env.QA_INPUT === 'mouse') await this.g.page.mouse.up();
     else await this.g.page.evaluate(([id, x, y]) => window.__qaTouch.dispatch('up', id, x, y), [id, p.x, p.y]);
   }
+  /** OS cancels the touch (e.g. system gesture, call, notification pull-down): touchcancel / pointercancel */
+  async cancel(id) {
+    const p = this.active.get(id); if (!p) return;
+    this.active.delete(id);
+    if (this.g.useCdp) { const c = await this._cdp(); await c.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); }
+    else if (process.env.QA_INPUT === 'mouse') await this.g.page.mouse.up();
+    else await this.g.page.evaluate(([id, x, y]) => window.__qaTouch.dispatch('cancel', id, x, y), [id, p.x, p.y]);
+  }
   async releaseAll() { for (const id of [...this.active.keys()]) await this.up(id).catch(() => {}); }
   /** one-finger drag with intermediate moves */
   async drag(id, from, to, { steps = 12, stepMs = 16, hold = false } = {}) {
@@ -90,11 +98,11 @@ const INIT = () => {
       let target;
       if (kind === 'down') { target = document.elementFromPoint(x, y) || document.body; ids.set(id, { target }); }
       else target = (ids.get(id) || {}).target || document.elementFromPoint(x, y) || document.body;
-      const type = { down: 'pointerdown', move: 'pointermove', up: 'pointerup' }[kind];
+      const type = { down: 'pointerdown', move: 'pointermove', up: 'pointerup', cancel: 'pointercancel' }[kind];
       const init = { bubbles: true, cancelable: true, composed: true, pointerId: pid, pointerType: 'touch', isPrimary: id === 0, clientX: x, clientY: y, screenX: x, screenY: y,
         width: 1, height: 1, pressure: kind === 'up' ? 0 : 0.5, button: kind === 'move' ? -1 : 0, buttons: kind === 'up' ? 0 : 1 };
       target.dispatchEvent(new PointerEvent(type, init));
-      if (kind === 'up') { target.dispatchEvent(new PointerEvent('pointerout', init)); ids.delete(id); }
+      if (kind === 'up' || kind === 'cancel') { target.dispatchEvent(new PointerEvent('pointerout', init)); ids.delete(id); }
     },
   };
 };
@@ -145,7 +153,7 @@ export class Game {
 
   /* ---- navigation / state */
   async open(query = '', { waitUntil = 'domcontentloaded' } = {}) {
-    const res = await this.page.goto('/' + query, { waitUntil });
+    const res = await this.page.goto('./' + query, { waitUntil });
     return res;
   }
   async hook(name) { return this.page.evaluate(([h, n]) => { const w = window[h]; if (!w) return false; if (n === 'getState') return typeof w.getState === 'function' || typeof w.state === 'function'; return typeof w[n] === 'function'; }, [HOOK, name]); }
@@ -273,6 +281,14 @@ export class Game {
     } finally { await this.stickUp(); }
     const samples = recorder ? await this.recStop() : []; if (samples.length) samples[0].start = true;
     return { reason, samples, end: await this.needPos() };
+  }
+  /** Walk along a planned route (gt.route) waypoint by waypoint. */
+  async walkRoute(to, opts = {}) {
+    const from = await this.needPos(); const r = this.gt.route(from, to);
+    if (!r) return { reason: 'no-route', samples: [], end: from };
+    let last = { reason: 'arrived', samples: [] }; const samples = [];
+    for (const w of [...r, to]) { last = await this.walkToward(w.x, w.z, { timeout: 9000, arrive: 0.6, ...opts, recorder: opts.recorder ?? false }); samples.push(...last.samples); if (last.reason !== 'arrived') break; }
+    return { ...last, samples, end: await this.needPos() };
   }
   async recStart(everyMs = 33) {
     await this.page.evaluate(([h, ms]) => {

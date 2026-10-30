@@ -2,9 +2,11 @@
 export interface InputState {
   mx: number; mz: number; run: boolean;
   lookDX: number; lookDY: number; // 蓄積（消費側でリセット）
+  /** ファイト用：ドラッグ開始点からのずれ(px)。fightHeld の間だけ有効 */
+  fdx: number; fdy: number; fightHeld: boolean;
 }
 export class Input {
-  s: InputState = { mx: 0, mz: 0, run: false, lookDX: 0, lookDY: 0 };
+  s: InputState = { mx: 0, mz: 0, run: false, lookDX: 0, lookDY: 0, fdx: 0, fdy: 0, fightHeld: false };
   enabled = false;
   lockMove = false; // 釣りモード中は左半分も視点操作になる
   joyId: number | null = null; lookId: number | null = null;
@@ -13,6 +15,12 @@ export class Input {
   runLock = false; // 走るボタン／常に走る
   edgeRun = false; // ジョイスティックを端まで倒している間
   onKey: (k: string) => void = () => {};
+  /** ファイト中は視点操作の代わりに「ドラッグ量」を fdx/fdy に出す（上下=竿の角度、左右=竿を向ける） */
+  fightMode = false;
+  /** 上方向のフリックでキャスト（flickOn の間だけ）。power は 0..1 */
+  flickOn = false;
+  onFlick: (power: number) => void = () => {};
+  private lx0 = 0; private ly0 = 0; private lt0 = 0;
   joyActive = false;
 
   constructor(private layer: HTMLElement, private ring: HTMLElement, private knob: HTMLElement) {
@@ -29,7 +37,7 @@ export class Input {
   get radius() { return window.innerWidth > window.innerHeight ? 48 : 56; }
 
   reset() {
-    this.joyId = null; this.lookId = null; this.joyActive = false; this.edgeRun = false;
+    this.joyId = null; this.lookId = null; this.joyActive = false; this.edgeRun = false; this.s.fightHeld = false; this.s.fdx = 0; this.s.fdy = 0;
     this.s.mx = 0; this.s.mz = 0; this.recalcKeys();
     this.ring.classList.remove('active'); this.ring.style.transform = ''; this.knob.style.transform = '';
   }
@@ -49,7 +57,7 @@ export class Input {
     const w = window.innerWidth;
     if (e.pointerType === 'mouse') {
       if (e.button !== 0 && e.button !== 2) return;
-      if (this.lookId === null) { this.lookId = e.pointerId; this.lx = e.clientX; this.ly = e.clientY; }
+      if (this.lookId === null) { this.lookId = e.pointerId; this.lx = this.lx0 = e.clientX; this.ly = this.ly0 = e.clientY; this.lt0 = performance.now(); this.s.fightHeld = this.fightMode; }
       return;
     }
     if (e.clientX < w * 0.5 && !this.lockMove) {
@@ -61,7 +69,7 @@ export class Input {
       this.knob.style.transform = 'translate(0px,0px)';
       void r;
     } else if (this.lookId === null) {
-      this.lookId = e.pointerId; this.lx = e.clientX; this.ly = e.clientY;
+      this.lookId = e.pointerId; this.lx = this.lx0 = e.clientX; this.ly = this.ly0 = e.clientY; this.lt0 = performance.now(); this.s.fightHeld = this.fightMode;
     }
   };
   private ringHome() {
@@ -85,7 +93,8 @@ export class Input {
       this.updateRun();
       this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
     } else if (e.pointerId === this.lookId) {
-      this.s.lookDX += e.clientX - this.lx; this.s.lookDY += e.clientY - this.ly;
+      if (this.fightMode) { this.s.fdx = e.clientX - this.lx0; this.s.fdy = e.clientY - this.ly0; }
+      else { this.s.lookDX += e.clientX - this.lx; this.s.lookDY += e.clientY - this.ly; }
       this.lx = e.clientX; this.ly = e.clientY;
     }
   };
@@ -95,6 +104,11 @@ export class Input {
       this.ring.classList.remove('active'); this.ring.style.transform = ''; this.knob.style.transform = '';
       this.recalcKeys();
     }
-    if (e.pointerId === this.lookId) this.lookId = null;
+    if (e.pointerId === this.lookId) {
+      this.lookId = null;
+      const dx = e.clientX - this.lx0, dy = e.clientY - this.ly0, dt = performance.now() - this.lt0;
+      if (!this.fightMode && this.flickOn && dy < -90 && dt < 260 && Math.abs(dx) < -dy * 0.7) this.onFlick(Math.max(0.15, Math.min(1, (-dy - 60) / (window.innerHeight * 0.5))));
+      this.s.fightHeld = false; this.s.fdx = 0; this.s.fdy = 0;
+    }
   };
 }
