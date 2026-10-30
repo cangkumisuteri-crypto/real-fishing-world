@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0b1424" />
+<meta name="format-detection" content="telephone=no" />
+<title>REAL FISHING WORLD — 波戸浦港（Phase 1 プレビュー）</title>
+<style>:root{--sa-t:env(safe-area-inset-top,0px);--sa-r:env(safe-area-inset-right,0px);--sa-b:env(safe-area-inset-bottom,0px);--sa-l:env(safe-area-inset-left,0px);--gap:12px;--tb:48px;--main:72px;--mainF:80px;--joy:128px;--reel:96px;--btn:#0c162694;--accent:#ff8a3d;--danger:#e5484d;--ink:#fff}@media (orientation:landscape){:root{--main:64px;--mainF:72px;--joy:112px;--reel:88px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{overscroll-behavior:none;touch-action:none;-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;height:100%;color:var(--ink);background:#0b1424;margin:0;font-family:-apple-system,BlinkMacSystemFont,Hiragino Sans,Hiragino Kaku Gothic ProN,Noto Sans JP,Noto Sans CJK JP,Meiryo,sans-serif;overflow:hidden}#stage{position:fixed;top:0;bottom:0;left:0;right:0}#stage canvas{touch-action:none;width:100%;height:100%;display:block}#touch{touch-action:none;position:fixed;top:0;bottom:0;left:0;right:0}#hud{pointer-events:none;opacity:0;transition:opacity .25s;position:fixed;top:0;bottom:0;left:0;right:0}body.playing #hud{opacity:1}#hud [data-ui]{pointer-events:auto}button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;border:0;margin:0;padding:0}.btn{background:var(--btn);text-shadow:0 1px 2px #000,0 0 3px #0b1424;-webkit-backdrop-filter:blur(3px);border:1.5px solid #ffffff59;border-radius:14px;flex-direction:column;justify-content:center;align-items:center;gap:1px;font-weight:700;line-height:1.1;display:flex;position:absolute}.btn:active{background:#283c5ad9}.btn:before{content:"";position:absolute;top:-6px;bottom:-6px;left:-6px;right:-6px}.btn .ic{font-size:19px;line-height:1}.btn .lb{letter-spacing:0;font-size:10px}.btn[disabled],.btn.off{opacity:.55}.tb{width:var(--tb);height:var(--tb);top:calc(var(--sa-t) + 8px)}#btnMenu{left:calc(var(--sa-l) + 16px)}#btnMap{right:calc(var(--sa-r) + 16px + var(--tb) + var(--gap))}#btnCam,#btnGear{right:calc(var(--sa-r) + 16px)}#btnExit{left:calc(var(--sa-l) + 16px);background:#e5484dd1}.chip{top:calc(var(--sa-t) + 8px);left:calc(var(--sa-l) + 76px);right:calc(var(--sa-r) + 136px);height:var(--tb);background:var(--btn);text-shadow:0 1px 2px #000;white-space:nowrap;text-overflow:ellipsis;text-align:center;border:1px solid #ffffff40;border-radius:12px;flex-direction:column;justify-content:center;padding:4px 10px;font-size:12px;font-weight:700;line-height:1.25;display:flex;position:absolute;overflow:hidden}.chip div{text-overflow:ellipsis;overflow:hidden}.chip small{opacity:.9;font-size:11px;font-weight:600}#chipF{right:calc(var(--sa-r) + 76px)}.main{right:calc(var(--sa-r) + 20px);bottom:calc(var(--sa-b) + 32px);width:var(--main);height:var(--main);background:var(--accent);border-color:#fff;border-radius:50%;font-size:12px}.main .ic{font-size:22px}.main .lb{font-size:12px}.main.off{opacity:.8;background:#5a606cbf}#btnBag{right:calc(var(--sa-r) + 20px + var(--main) + var(--gap));bottom:calc(var(--sa-b) + 32px + (var(--main) - 48px)/2);width:48px;height:48px}#btnRun{left:calc(var(--sa-l) + 24px + (var(--joy) - 56px)/2);bottom:calc(var(--sa-b) + 24px + var(--joy) + var(--gap));border-radius:50%;width:56px;height:56px}#btnRun.on{background:var(--accent);border-color:#fff;box-shadow:0 0 0 3px #ff8a3d73}#btnRun.on .lb{color:#fff}#joyRing{left:calc(var(--sa-l) + 24px);bottom:calc(var(--sa-b) + 24px);width:var(--joy);height:var(--joy);pointer-events:none;opacity:.8;background:#ffffff14;border:2px solid #fff6;border-radius:50%;position:absolute}#joyRing.active{background:#ffffff29;border-color:#ffffffbf}#joyKnob{width:calc(var(--joy)*.45);height:calc(var(--joy)*.45);margin:calc(var(--joy)*-.225);background:#ffffff8c;border:2px solid #ffffffe6;border-radius:50%;position:absolute;top:50%;left:50%}#btnReel{left:calc(var(--sa-l) + 24px);bottom:calc(var(--sa-b) + 32px);width:var(--reel);height:var(--reel);border-radius:50%}#btnAction{right:calc(var(--sa-r) + 20px);bottom:calc(var(--sa-b) + 32px);width:var(--mainF);height:var(--mainF);background:#5a606ccc;border-radius:50%}#btnBait{right:calc(var(--sa-r) + 20px + (var(--mainF) - 48px)/2);bottom:calc(var(--sa-b) + 32px + var(--mainF) + var(--gap));width:48px;height:48px}#infoCard{top:calc(var(--sa-t) + 64px);width:min(320px,calc(100vw - var(--sa-l) - var(--sa-r) - 32px));background:var(--btn);text-shadow:0 1px 2px #000;border:1px solid #ffffff40;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:600;line-height:1.45;position:absolute;left:50%;transform:translate(-50%)}#infoCard b{color:#ffd37a}#infoCard .warn{color:#ffb4a0}.mv,.fs{transition:opacity .15s}body[data-mode=move] .fs,body[data-mode=fish] .mv{display:none!important}#toast{left:50%;bottom:calc(var(--sa-b) + 32px + var(--main) + 84px);text-align:center;opacity:0;pointer-events:none;z-index:50;text-shadow:0 1px 2px #000;background:#0a1220db;border:1px solid #ffffff4d;border-radius:12px;max-width:calc(100vw - 32px);padding:9px 14px;font-size:14px;font-weight:700;transition:opacity .2s;position:fixed;transform:translate(-50%)}#toast.show{opacity:1}#hintLine{left:0;right:0;bottom:calc(var(--sa-b) + 4px);text-align:center;opacity:.7;pointer-events:none;text-shadow:0 1px 2px #000;font-size:10px;position:absolute}#panel{z-index:40;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:calc(var(--sa-t) + 12px) calc(var(--sa-r) + 16px) calc(var(--sa-b) + 16px) calc(var(--sa-l) + 16px);background:#060c16eb;display:none;position:fixed;top:0;bottom:0;left:0;right:0;overflow:auto}#panel.open{display:block}#panel h2{margin:4px 0 10px;padding-right:96px;font-size:20px}#panel .close{top:calc(var(--sa-t) + 8px);right:calc(var(--sa-r) + 16px);background:var(--accent);z-index:41;border-radius:12px;min-width:84px;height:44px;padding:0 14px;font-size:15px;font-weight:800;position:fixed}#panel .sec{background:#ffffff12;border-radius:12px;margin:0 0 10px;padding:10px 12px;font-size:14px;line-height:1.55}#panel .sec h3{color:#ffd37a;margin:0 0 6px;font-size:14px}#panel .row{flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0;display:flex}#panel .seg button{background:#ffffff1f;border:1.5px solid #ffffff4d;border-radius:10px;min-height:44px;padding:0 14px;font-size:14px;font-weight:700}#panel .seg button.on{background:var(--accent);border-color:#fff}#panel input[type=range]{width:100%;min-height:36px}#panel .tag{vertical-align:middle;background:#6b7280;border-radius:8px;margin-left:6px;padding:1px 8px;font-size:11px;display:inline-block}#panel .act{background:#ffffff24;border:1.5px solid #ffffff4d;border-radius:10px;min-height:44px;padding:0 16px;font-size:14px;font-weight:700}#panel .act.danger{background:#e5484d80}#panel canvas{touch-action:none;background:#0e4f72;border:1px solid #ffffff4d;border-radius:10px;width:100%;max-width:520px;margin:0 auto;display:block}#panel ul{margin:4px 0 0 18px;padding:0}#loading{z-index:60;text-align:center;padding:calc(var(--sa-t) + 16px) calc(var(--sa-r) + 20px) calc(var(--sa-b) + 16px) calc(var(--sa-l) + 20px);touch-action:none;background:linear-gradient(#173a63,#5b93b8 55%,#e8c9a0);flex-direction:column;justify-content:center;align-items:center;display:flex;position:fixed;top:0;bottom:0;left:0;right:0}#loading h1{letter-spacing:2px;text-shadow:0 2px 6px #00000073;margin:0;font-size:max(24px,min(7vw,40px))}#loading .sub{text-shadow:0 1px 4px #00000080;margin:6px 0 18px;font-size:14px;font-weight:700}#bar{background:#00000059;border-radius:6px;width:min(300px,70vw);height:10px;overflow:hidden}#bar i{background:#ffcf6e;width:0;height:100%;transition:width .2s;display:block}#loadMsg{text-shadow:0 1px 3px #000;min-height:1.4em;margin:10px 0 16px;font-size:13px}#play{background:var(--accent);border:2px solid #fff;border-radius:30px;min-width:220px;height:60px;font-size:20px;font-weight:800;box-shadow:0 4px 16px #0006}#play[disabled]{opacity:.8;background:#6b7280}#loading .how{text-shadow:0 1px 3px #000;opacity:.95;max-width:420px;margin-top:18px;font-size:12px;line-height:1.7}#loading .ver{bottom:calc(var(--sa-b) + 8px);opacity:.7;font-size:11px;position:absolute}#err{z-index:100;padding:calc(var(--sa-t) + 14px) calc(var(--sa-r) + 14px) calc(var(--sa-b) + 14px) calc(var(--sa-l) + 14px);touch-action:pan-y;-webkit-user-select:text;-moz-user-select:text;user-select:text;background:#280000f0;display:none;position:fixed;top:0;bottom:0;left:0;right:0;overflow:auto}#err.open{display:block}#err h2{margin:0 0 8px;font-size:18px}#err pre{white-space:pre-wrap;word-break:break-all;background:#00000073;border-radius:8px;max-height:55vh;padding:10px;font-size:12px;overflow:auto}#err button{color:#400;background:#fff;border-radius:10px;min-height:44px;margin:8px 8px 0 0;padding:0 18px;font-size:15px;font-weight:700}</style>
+  <script type="module" crossorigin src="./assets/index-Bzw73VsQ.js"></script>
+</head>
+<body data-mode="move">
+<div id="stage"></div>
+<div id="touch"></div>
+<div id="hud" aria-live="off">
+  <div id="joyRing" class="mv"><div id="joyKnob"></div></div>
+  <button id="btnMenu" class="btn tb mv" data-ui><span class="ic">☰</span><span class="lb">メニュー</span></button>
+  <div id="chip" class="chip mv" data-ui data-info><div id="chipTop">波戸浦港</div><small id="chipSub">水辺に近づくと釣れるよ</small></div>
+  <button id="btnMap" class="btn tb mv" data-ui><span class="ic">🗺</span><span class="lb">マップ</span></button>
+  <button id="btnCam" class="btn tb mv" data-ui><span class="ic">📷</span><span class="lb">視点</span></button>
+  <button id="btnRun" class="btn mv" data-ui><span class="ic">🏃</span><span class="lb">走る</span></button>
+  <button id="btnBag" class="btn mv" data-ui><span class="ic">🎒</span><span class="lb">所持品</span></button>
+  <button id="btnFish" class="btn main mv off" data-ui><span class="ic">🎣</span><span class="lb">釣り開始</span></button>
+
+  <button id="btnExit" class="btn tb fs" data-ui><span class="ic">✕</span><span class="lb">やめる</span></button>
+  <div id="chipF" class="chip fs" data-ui data-info><div id="chipFTop">ウキ釣り（準備中）</div><small id="chipFSub">波戸浦港</small></div>
+  <button id="btnGear" class="btn tb fs off" data-ui><span class="ic">⚙</span><span class="lb">仕掛け</span></button>
+  <div id="infoCard" class="fs" data-ui data-info></div>
+  <button id="btnReel" class="btn fs off" data-ui><span class="ic">🎣</span><span class="lb">巻く（準備中）</span></button>
+  <button id="btnBait" class="btn fs off" data-ui><span class="ic">🪱</span><span class="lb">エサ</span></button>
+  <button id="btnAction" class="btn fs off" data-ui><span class="ic">🎯</span><span class="lb">キャスト</span></button>
+</div>
+<div id="toast"></div>
+<div id="panel"><button class="close" id="panelClose">閉じる</button><div id="panelBody"></div></div>
+
+<div id="loading">
+  <h1>REAL FISHING WORLD</h1>
+  <div class="sub">波戸浦港 — Phase 1 プレビュー（港を歩こう）</div>
+  <div id="bar"><i></i></div>
+  <div id="loadMsg">起動中…</div>
+  <button id="play" disabled>読み込み中…</button>
+  <div class="how">左半分をドラッグ＝移動 ／ 右半分をスワイプ＝視点<br>水辺で「釣り開始」。釣りはまだできません（構えるところまで）。<br>PC: WASD移動・ドラッグで視点・Fで釣り開始</div>
+  <div class="ver">v0.1.0 Phase 1 ・ 架空の港です</div>
+</div>
+<div id="err"><h2>⚠ エラーが発生しました</h2><div id="errMsg"></div><pre id="errStack"></pre>
+  <button onclick="location.reload()">再読み込み</button><button onclick="document.getElementById('err').classList.remove('open')">閉じる</button></div>
+<noscript><div style="position:fixed;inset:0;background:#000;color:#fff;padding:20px;z-index:200">JavaScript を有効にしてください。</div></noscript>
+<script>
+/* グローバルエラーオーバーレイ（白画面にしない） */
+(function(){
+  var shown=0;
+  window.__rfwErrors=[];
+  function show(title,detail){
+    try{
+      window.__rfwErrors.push(String(title));
+      if(shown>2) return; shown++;
+      var e=document.getElementById('err'); if(!e) return;
+      document.getElementById('errMsg').textContent=String(title);
+      document.getElementById('errStack').textContent=String(detail||'');
+      e.classList.add('open');
+      var l=document.getElementById('loadMsg'); if(l && !window.__rfwBooted) l.textContent='起動に失敗しました（エラー表示を確認してください）';
+    }catch(_){}
+  }
+  window.__rfwShowError=show;
+  window.addEventListener('error',function(ev){ var t=ev.message||'Error'; if(ev.target&&ev.target!==window&&ev.target.src) t='読み込み失敗: '+ev.target.src; show(t,(ev.error&&ev.error.stack)||(ev.filename+':'+ev.lineno+':'+ev.colno)); },true);
+  window.addEventListener('unhandledrejection',function(ev){ var r=ev.reason; show('Promise error: '+(r&&r.message||r),(r&&r.stack)||''); });
+  setTimeout(function(){ if(!window.__rfwBooted){ var l=document.getElementById('loadMsg'); if(l) l.textContent='起動に時間がかかっています…（通信が遅い可能性があります）'; } },9000);
+})();
+</script>
+</body>
+</html>
