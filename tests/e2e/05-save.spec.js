@@ -6,8 +6,8 @@ async function saveKeys(page) {
 
 test.describe('QA-11 save / reload', () => {
   test('QA-11 save persists across reload (position, camera, versioned data)', async ({ game: g, page }) => {
-    await g.needHooks('getState');
     await g.start();
+    await g.needHooks('getState');
     if (!(await g.pos())) g.untested('getState().player missing');
     // move somewhere clearly different from spawn, and turn the camera
     await g.stickHold(1, 0.6, 1800); await g.swipe(-150, 0); await sleep(300);

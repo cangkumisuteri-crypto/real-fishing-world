@@ -140,27 +140,31 @@ async function boot() {
   addEventListener('orientationchange', () => setTimeout(resize, 150));
 
   // ---- HUD ----
+  let prevAlways = settings.alwaysRun;
   const hud = new Hud({
     onFish: () => startFishing(),
     onExit: () => exitFishing(),
     onCam: () => { const m = rig.mode === 'first' ? 'third' : 'first'; rig.setMode(m); settings = { ...settings, camera: m }; hud.toast(m === 'first' ? '一人称視点' : '三人称視点'); saveNow(); },
     onSettings: (s) => {
       const qChanged = s.quality !== settings.quality;
+      void prevAlways;
       settings = s;
       if (qChanged) { lastQualityChange = performance.now(); applyQuality(s.quality); }
       rig.setMode(s.camera);
       props.hints.visible = s.hints;
+      if (s.alwaysRun !== prevAlways) { prevAlways = s.alwaysRun; input.setRunLock(s.alwaysRun); hud.setRun(s.alwaysRun); hud.toast(s.alwaysRun ? '常に走る: ON' : '常に走る: OFF'); }
       saveNow();
     },
     onSaveNow: () => saveNow(),
     onClearSave: () => clearSave(),
     onResetPos: () => { player.place(SPAWN.x, SPAWN.z, SPAWN.yaw); hud.toast('スポーン地点に戻りました'); saveNow(); },
-    onRun: (v) => input.setRunButton(v),
+    onRun: (v) => { input.setRunLock(v); hud.setRun(v); hud.toast(v ? '走る ON' : '走る OFF（歩き）', 1200); },
     info: () => ({ fps: fps.fps, quality: settings.quality, timeLabel: clockLabel(), timeDemo: tOverride != null, saveStatus, renderer: rendererName, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, dpr: renderer.getPixelRatio() }),
     playerPos: () => ({ x: player.x, z: player.z, yaw: player.yaw }),
   }, () => settings, minimap);
   hud.onPanel = (open) => { input.enabled = playing && !open; if (open) input.reset(); else saveNow(); };
   props.hints.visible = settings.hints;
+  input.setRunLock(settings.alwaysRun); hud.setRun(settings.alwaysRun);
   if (saved.note) setTimeout(() => hud.toast(saved.note, 4000), 1500);
   if (saved.status === 'unavailable') setTimeout(() => hud.toast('この環境では保存できません', 4000), 1500);
 

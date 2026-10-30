@@ -30,11 +30,14 @@ export class Hud {
     on('btnMenu', () => this.open('menu'));
     on('panelClose', () => this.close());
     for (const id of ['btnGear', 'btnReel', 'btnBait', 'btnAction']) on(id, () => this.toast('この機能は Phase 2 以降で実装予定です'));
-    const run = $('btnRun');
-    const setRun = (v: boolean) => { run.classList.toggle('held', v); cb.onRun(v); };
-    run.addEventListener('pointerdown', (e) => { e.preventDefault(); setRun(true); });
-    for (const t of ['pointerup', 'pointercancel', 'pointerleave']) run.addEventListener(t, () => setRun(false));
-    window.addEventListener('pointerup', () => { if (run.classList.contains('held')) setRun(false); });
+    on('btnRun', () => cb.onRun(!this.runOn));
+  }
+  private runOn = false;
+  /** 走るロックの表示（ON: オレンジ・「走る ON」・aria-pressed） */
+  setRun(v: boolean) {
+    this.runOn = v;
+    const r = $('btnRun'); r.classList.toggle('on', v); r.setAttribute('aria-pressed', v ? 'true' : 'false'); r.dataset.state = v ? 'on' : 'off';
+    r.querySelector('.lb')!.textContent = v ? '走る ON' : '走る';
   }
 
   setMode(m: 'move' | 'fish') { document.body.dataset.mode = m; }
@@ -95,6 +98,7 @@ export class Hud {
       <div class="sec"><h3>視点</h3>${seg('camera', [['first', '一人称（標準）'], ['third', '三人称']], s.camera)}</div>
       <div class="sec"><h3>移動速度 <span id="vSpeed">${s.moveSpeed.toFixed(1)}×</span></h3><input id="rngSpeed" type="range" min="0.6" max="1.6" step="0.1" value="${s.moveSpeed}">
         <h3 style="margin-top:8px">視点の感度 <span id="vLook">${s.lookSens.toFixed(1)}×</span></h3><input id="rngLook" type="range" min="0.5" max="2" step="0.1" value="${s.lookSens}"></div>
+      <div class="sec"><h3>常に走る</h3>${seg('alwaysRun', [['1', 'ON（常に走る）'], ['0', 'OFF（歩き）']], s.alwaysRun ? '1' : '0')}<div style="font-size:12px;opacity:.8">ONにすると、起動時と設定変更時に「走る」ロックがONになります。画面の「走る」ボタンでも切り替えられます（走る速さは歩きの約2倍）。</div></div>
       <div class="sec"><h3>釣り場マーカー</h3>${seg('hints', [['1', '表示'], ['0', '非表示']], s.hints ? '1' : '0')}</div>
       <div class="sec"><h3>セーブ</h3>設定と最後の位置を端末内（localStorage）に保存します。<span style="opacity:.8">状態: ${inf.saveStatus}</span>
         <div class="row"><button class="act" id="btnSaveNow">いま保存</button><button class="act" id="btnResetPos">スポーン地点へ戻る</button><button class="act danger" id="btnClear">セーブ削除</button></div></div>
@@ -111,6 +115,7 @@ export class Hud {
     const bind = (n: string, f: (v: string) => void) => q(n).forEach((b) => b.addEventListener('click', () => { f(b.dataset.v!); q(n).forEach((x) => x.classList.toggle('on', x === b)); }));
     bind('quality', (v) => this.change({ quality: v as QualityId }));
     bind('camera', (v) => this.change({ camera: v as 'first' | 'third' }));
+    bind('alwaysRun', (v) => this.change({ alwaysRun: v === '1' }));
     bind('hints', (v) => this.change({ hints: v === '1' }));
     $<HTMLInputElement>('rngSpeed').addEventListener('input', (e) => { const v = parseFloat((e.target as HTMLInputElement).value); $('vSpeed').textContent = v.toFixed(1) + '×'; this.change({ moveSpeed: v }); });
     $<HTMLInputElement>('rngLook').addEventListener('input', (e) => { const v = parseFloat((e.target as HTMLInputElement).value); $('vLook').textContent = v.toFixed(1) + '×'; this.change({ lookSens: v }); });

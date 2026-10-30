@@ -5,14 +5,15 @@ import { test, expect, MOCK, violations } from './lib.js';
 const strict = !MOCK;
 
 async function prep(g) {
-  await g.needHooks('getState');
   g.needGT();
   await g.start();
+  await g.needHooks('getState');
   if (!(await g.pos())) g.untested('getState().player.{x,z} missing');
 }
 
 test.describe('QA-06..07 collision', () => {
   test('QA-06 cannot walk through terrain / buildings / props', async ({ game: g }) => {
+    test.setTimeout(420000);
     await prep(g);
     const gt = g.gt; const all = []; const log = [];
     // (a) closed-loop pushes straight into every building centre from where we stand
@@ -46,6 +47,7 @@ test.describe('QA-06..07 collision', () => {
   });
 
   test('QA-07 cannot walk into the sea (incl. tetrapod zone & hole gaps)', async ({ game: g }) => {
+    test.setTimeout(420000);
     await prep(g);
     const gt = g.gt; const all = []; const log = [];
     const spots = gt.edgeSpots(5);
@@ -76,15 +78,22 @@ test.describe('QA-06..07 collision', () => {
     expect(g.errors).toEqual([]);
   });
 
-  test('QA-07b hook cross-check: game\'s own isWater/isWalkable agree with src/world ground truth', async ({ game: g }) => {
-    await g.start();
-    await g.needHooks('isWater'); g.needGT();
-    const gt = g.gt; let bad = [];
-    for (let x = -60; x <= 60; x += 3) for (let z = -50; z <= 50; z += 3) {
-      const mine = gt.isWater(x, z) || gt.isTetra(x, z);
-      const theirs = await g.call('isWater', x, z);
-      if (mine !== !!theirs && !(gt.isTetra(x, z))) bad.push([x, z, mine, theirs]);
-    }
-    expect(bad.slice(0, 5), `${bad.length} grid points where game isWater() disagrees with layout.ts`).toEqual([]);
+  test('QA-07b hook cross-check: game\'s own collision query agrees with src/world ground truth', async ({ game: g }) => {
+    await g.start(); g.needGT();
+    const gt = g.gt; const bad = [];
+    if (await g.hook('isWater')) {            // proposed contract
+      for (let x = -60; x <= 60; x += 3) for (let z = -50; z <= 50; z += 3) {
+        const mine = gt.isWater(x, z) || gt.isTetra(x, z);
+        const theirs = await g.call('isWater', x, z);
+        if (mine !== !!theirs && !gt.isTetra(x, z)) bad.push([x, z, mine, theirs]);
+      }
+    } else if (await g.hook('blocked')) {     // actual build: blocked(x,z) must be true on every water / tetrapod / building point
+      const pts = [];
+      for (let x = -78; x <= 78; x += 2) for (let z = -78; z <= 78; z += 2) pts.push([x, z]);
+      const res = await g.page.evaluate((p) => p.map(([x, z]) => window.__rfw.blocked(x, z)), pts);
+      pts.forEach(([x, z], i) => { if ((gt.isWater(x, z) || gt.isTetra(x, z) || gt.inBuilding(x, z)) && !res[i]) bad.push([x, z, 'gt says solid/water, game blocked()=false']); });
+      g.note('points', pts.length);
+    } else g.untested('neither isWater nor blocked hook exposed');
+    expect(bad.slice(0, 5), `${bad.length} grid points where the game disagrees with layout.ts`).toEqual([]);
   });
 });

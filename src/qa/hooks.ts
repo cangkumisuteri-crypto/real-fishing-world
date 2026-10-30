@@ -9,7 +9,7 @@ export function installQaHooks(c: any) {
       return {
         playing: c.playing, mode: c.mode, x: p.x, z: p.z, y: p.y, yaw: p.yaw, pitch: p.pitch, moved: p.moved,
         canFish: c.site.can, siteInfo: c.site.can ? { depth: c.site.depth, zone: c.site.zoneJa, hole: c.site.hole, nearTetra: c.site.nearTetra, spot: c.site.spot?.def?.id ?? null, yaw: c.site.yaw } : null,
-        fps: c.fps.fps, quality: c.settings.quality, camera: c.rig.mode, dpr: c.renderer.getPixelRatio(),
+        fps: c.fps.fps, quality: c.settings.quality, alwaysRun: c.settings.alwaysRun, run: c.input.s.run, runLock: c.input.runLock, edgeRun: c.input.edgeRun, camera: c.rig.mode, dpr: c.renderer.getPixelRatio(),
         calls: c.renderer.info.render.calls, tris: c.renderer.info.render.triangles, geometries: c.renderer.info.memory.geometries, textures: c.renderer.info.memory.textures,
         saveStatus: c.saveStatus, sunElev: c.skyState.elevDeg, hours: c.skyState.hours, errors: w.__rfwErrors ?? [],
       };

@@ -2,7 +2,7 @@ import { Grid, PLAYER_RADIUS } from '../world/grid';
 
 export const EYE = 1.6;
 export const WALK = 3.0; // m/s（ゲーム内。実測値ではない）
-export const RUN = 5.2;
+export const RUN = 6.0; // 歩きの2倍
 
 /** 位置・向き・当たり判定。グリッドのセルに対する円の衝突（軸ごとのスライド）。 */
 export class Player {

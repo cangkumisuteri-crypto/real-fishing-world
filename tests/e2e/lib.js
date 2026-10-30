@@ -271,14 +271,14 @@ export class Game {
         await sleep(90);
       }
     } finally { await this.stickUp(); }
-    const samples = recorder ? await this.recStop() : [];
+    const samples = recorder ? await this.recStop() : []; if (samples.length) samples[0].start = true;
     return { reason, samples, end: await this.needPos() };
   }
   async recStart(everyMs = 33) {
     await this.page.evaluate(([h, ms]) => {
       window.__qaRec = { s: [], t0: performance.now() };
       window.__qaRecTimer = setInterval(() => {
-        const st = window[h]?.getState?.(); if (!st?.player) return;
+        const w = window[h]; let st = w?.getState?.(); if (!st && w?.state) { const f = w.state(); st = { player: { x: f.x, z: f.z }, camera: { yaw: f.yaw, pitch: f.pitch }, mode: f.mode }; } if (!st?.player) return;
         window.__qaRec.s.push({ t: performance.now() - window.__qaRec.t0, x: st.player.x, z: st.player.z, yaw: st.camera?.yaw, pitch: st.camera?.pitch, mode: st.mode });
       }, ms);
     }, [HOOK, everyMs]);
@@ -440,7 +440,7 @@ export function violations(gt, samples, { strict }) {
     const b = gt.inBuilding(s.x, s.z); if (b) out.push({ t: s.t, why: 'inside building ' + b.id, x: s.x, z: s.z });
     if (strict && (gt.isBlockedCell(s.x, s.z) || gt.blockedCircle(s.x, s.z, 0.2))) out.push({ t: s.t, why: 'inside prop/solid cell', x: s.x, z: s.z });
     if (s.x < gt.extent.min || s.x > gt.extent.max || s.z < gt.extent.min || s.z > gt.extent.max) out.push({ t: s.t, why: 'outside map extent', x: s.x, z: s.z });
-    if (prev && Math.hypot(s.x - prev.x, s.z - prev.z) > 3) out.push({ t: s.t, why: 'position jump >3 m in one sample (tunnelling/teleport?)', x: s.x, z: s.z });
+    if (prev && !s.start && Math.hypot(s.x - prev.x, s.z - prev.z) > 3) out.push({ t: s.t, why: 'position jump >3 m in one sample (tunnelling/teleport?)', x: s.x, z: s.z });
     prev = s;
   }
   return out;

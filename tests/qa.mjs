@@ -104,6 +104,65 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
     const y1 = await st(page);
     rec(suite, 'right-side swipe rotates camera (yaw)', Math.abs(y1.yaw - y0) > 0.15, `dyaw=${(y1.yaw - y0).toFixed(2)}rad dpitch=${(y1.pitch - p0).toFixed(2)}`);
 
+    // ---- 4b. 走る（トグル / 常に走る設定 / 端まで倒す） ----
+    {
+      const R = vp.width > vp.height ? 48 : 56; // Input.radius と同じ
+      const runBtn = () => page.evaluate(() => { const b = document.getElementById('btnRun'); const r = b.getBoundingClientRect(), j = document.getElementById('joyRing').getBoundingClientRect(); const o = [...document.querySelectorAll('[data-ui]')].filter((e) => e !== b && getComputedStyle(e).display !== 'none').filter((e) => { const q = e.getBoundingClientRect(); return r.x < q.x + q.width && q.x < r.x + r.width && r.y < q.y + q.height && q.y < r.y + r.height; }).map((e) => e.id || e.className); return { on: b.classList.contains('on'), pressed: b.getAttribute('aria-pressed'), label: b.querySelector('.lb').textContent, w: r.width, h: r.height, overlaps: o, ringOverlap: r.x < j.x + j.width && j.x < r.x + r.width && r.y < j.y + j.height && j.y < r.y + r.height, inVp: r.x >= 0 && r.y >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; });
+      const tapRun = async () => { if (touch) await page.tap('#btnRun'); else await page.click('#btnRun'); await sleep(250); };
+      const r0 = await runBtn(); const rs0 = await st(page);
+      rec(suite, 'run: 走る button is ≥44px, in viewport, overlaps no other button or the joystick ring', r0.w >= 44 && r0.h >= 44 && r0.inVp && r0.overlaps.length === 0 && !r0.ringOverlap, `${r0.w}x${r0.h} overlaps=${r0.overlaps.join(',') || '-'} ring=${r0.ringOverlap}`);
+      rec(suite, 'run: initial state is OFF (walk)', !r0.on && r0.pressed === 'false' && r0.label === '走る' && !rs0.run && !rs0.alwaysRun, `label=${r0.label} run=${rs0.run}`);
+      // 歩き速度（スティック60%）
+      const speed = async (ms) => { await page.evaluate(() => window.__rfw.teleport(-20, 15.5, 0)); await sleep(300); const m0 = (await st(page)).moved; const t0 = Date.now(); await ptr('pointerdown', 21, jx, jy); await ptr('pointermove', 21, jx, jy - Math.round(R * 0.6)); await sleep(ms); const m1 = (await st(page)).moved; const dt = Date.now() - t0; const sr = await st(page); await ptr('pointerup', 21, jx, jy - Math.round(R * 0.6)); await sleep(200); return { v: (m1 - m0) / (dt / 1000), run: sr.run, edge: sr.edgeRun }; };
+      const w = await speed(1800);
+      await tapRun();
+      const r1 = await runBtn(); const rs1 = await st(page);
+      rec(suite, 'run: tapping 走る turns lock ON (clear on-state: orange, "走る ON", aria-pressed)', r1.on && r1.pressed === 'true' && r1.label === '走る ON' && rs1.run && rs1.runLock, `label=${r1.label} run=${rs1.run}`);
+      await page.screenshot({ path: path.join(OUT, `${suite}_04_run_on.png`) });
+      const rn = await speed(1800);
+      const ratio = rn.v / w.v;
+      rec(suite, 'run: run speed ≈ 2× walk speed (same stick tilt)', w.v > 0.3 && ratio > 1.7 && ratio < 2.3 && rn.run && !w.run, `walk=${w.v.toFixed(2)}m/s run=${rn.v.toFixed(2)}m/s ratio=${ratio.toFixed(2)} (headless, wall-clock)`);
+      await tapRun();
+      const r2 = await runBtn(); const rs2 = await st(page);
+      rec(suite, 'run: tapping again turns lock OFF', !r2.on && r2.pressed === 'false' && r2.label === '走る' && !rs2.run, `label=${r2.label} run=${rs2.run}`);
+      // スティックを端まで倒すと走る
+      await ptr('pointerdown', 22, jx, jy); await ptr('pointermove', 22, jx, jy - Math.round(R * 0.6)); await sleep(150);
+      const e0 = await st(page);
+      await ptr('pointermove', 22, jx, jy - R - 6); await sleep(150);
+      const e1 = await st(page);
+      await ptr('pointermove', 22, jx, jy - Math.round(R * 0.6)); await sleep(150);
+      const e2 = await st(page);
+      await ptr('pointerup', 22, jx, jy - Math.round(R * 0.6)); await sleep(150);
+      const e3 = await st(page);
+      rec(suite, 'run: pushing joystick fully to the edge runs; easing back walks; release stops running', !e0.run && e1.run && e1.edgeRun && !e2.run && !e3.run, `part=${e0.run} edge=${e1.run} back=${e2.run} released=${e3.run}`);
+      // 設定「常に走る」
+      const openMenu = async () => { if (touch) await page.tap('#btnMenu'); else await page.click('#btnMenu'); await sleep(350); };
+      const closeMenu = async () => { if (touch) await page.tap('#panelClose'); else await page.click('#panelClose'); await sleep(250); };
+      await openMenu();
+      const hasSet = await page.evaluate(() => !!document.querySelector('[data-seg="alwaysRun"] button[data-v="1"]') && /常に走る/.test(document.getElementById('panelBody').textContent));
+      await page.evaluate(() => document.querySelector('[data-seg="alwaysRun"] button[data-v="1"]').click()); await sleep(300);
+      const s3 = await st(page); const r3 = await runBtn();
+      const sv = JSON.parse(await page.evaluate(() => localStorage.getItem('realFishingWorld.save')) || '{}');
+      await page.screenshot({ path: path.join(OUT, `${suite}_05_menu_alwaysrun.png`) });
+      await closeMenu();
+      rec(suite, 'menu: 常に走る setting exists and turns run ON immediately (button shows ON)', hasSet && s3.alwaysRun && s3.run && r3.on, `alwaysRun=${s3.alwaysRun} run=${s3.run}`);
+      rec(suite, 'menu: 常に走る is saved in settings (localStorage)', sv.version === 1 && sv.settings?.alwaysRun === true, JSON.stringify(sv.settings || {}).slice(0, 120));
+      await page.goto(Q('&t=14')); await waitBoot(page);
+      const s4 = await st(page); const r4 = await runBtn();
+      rec(suite, 'menu: 常に走る persists across reload and run starts ON', s4.alwaysRun && s4.runLock && r4.on && r4.label === '走る ON', `alwaysRun=${s4.alwaysRun} runLock=${s4.runLock} label=${r4.label}`);
+      if (touch) await page.tap('#play'); else await page.click('#play');
+      await until(page, () => window.__rfw.state().playing); await sleep(500);
+      await tapRun();
+      const s5 = await st(page);
+      rec(suite, 'run: with 常に走る ON the button can still switch to walk (setting stays ON)', !s5.run && s5.alwaysRun, `run=${s5.run} alwaysRun=${s5.alwaysRun}`);
+      await openMenu();
+      await page.evaluate(() => document.querySelector('[data-seg="alwaysRun"] button[data-v="0"]').click()); await sleep(300);
+      const s6 = await st(page); const r6 = await runBtn();
+      await closeMenu();
+      rec(suite, 'menu: 常に走る OFF returns to walking', !s6.alwaysRun && !s6.run && !r6.on, `alwaysRun=${s6.alwaysRun} run=${s6.run}`);
+      await page.evaluate(() => window.__rfw.teleport(-20, 15.5, 0)); await sleep(300);
+    }
+
     // ---- 5. collision ----
     const walk = async (ms) => { await ptr('pointerdown', 13, jx, jy); await ptr('pointermove', 13, jx, jy - 60); await sleep(ms); await ptr('pointerup', 13, jx, jy - 60); await sleep(200); };
     // 5a: 海へ

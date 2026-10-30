@@ -10,7 +10,8 @@ export class Input {
   joyId: number | null = null; lookId: number | null = null;
   private jx0 = 0; private jy0 = 0; private lx = 0; private ly = 0;
   private keys = new Set<string>();
-  btnRun = false;
+  runLock = false; // 走るボタン／常に走る
+  edgeRun = false; // ジョイスティックを端まで倒している間
   onKey: (k: string) => void = () => {};
   joyActive = false;
 
@@ -28,7 +29,7 @@ export class Input {
   get radius() { return window.innerWidth > window.innerHeight ? 48 : 56; }
 
   reset() {
-    this.joyId = null; this.lookId = null; this.joyActive = false;
+    this.joyId = null; this.lookId = null; this.joyActive = false; this.edgeRun = false;
     this.s.mx = 0; this.s.mz = 0; this.recalcKeys();
     this.ring.classList.remove('active'); this.ring.style.transform = ''; this.knob.style.transform = '';
   }
@@ -38,9 +39,10 @@ export class Input {
     const mx = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     const mz = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
     this.s.mx = mx; this.s.mz = mz;
-    this.s.run = k.has('ShiftLeft') || k.has('ShiftRight') || this.btnRun;
+    this.updateRun();
   }
-  setRunButton(v: boolean) { this.btnRun = v; this.s.run = v || this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'); }
+  private updateRun() { this.s.run = this.runLock || this.edgeRun || this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'); }
+  setRunLock(v: boolean) { this.runLock = v; this.updateRun(); }
 
   private down = (e: PointerEvent) => {
     if (!this.enabled) return;
@@ -74,10 +76,13 @@ export class Input {
       const r = this.radius;
       let dx = e.clientX - this.jx0, dy = e.clientY - this.jy0;
       const d = Math.hypot(dx, dy);
+      // 端まで倒す（円の外周付近）と走る。ヒステリシスでチラつき防止
+      this.edgeRun = d >= r * (this.edgeRun ? 0.88 : 1.0);
       if (d > r) { dx = dx / d * r; dy = dy / d * r; }
       this.s.mx = dx / r; this.s.mz = -dy / r;
       const dead = 0.12;
       if (Math.hypot(this.s.mx, this.s.mz) < dead) { this.s.mx = 0; this.s.mz = 0; }
+      this.updateRun();
       this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
     } else if (e.pointerId === this.lookId) {
       this.s.lookDX += e.clientX - this.lx; this.s.lookDY += e.clientY - this.ly;
@@ -86,7 +91,7 @@ export class Input {
   };
   private up = (e: PointerEvent) => {
     if (e.pointerId === this.joyId) {
-      this.joyId = null; this.joyActive = false; this.s.mx = 0; this.s.mz = 0;
+      this.joyId = null; this.joyActive = false; this.s.mx = 0; this.s.mz = 0; this.edgeRun = false;
       this.ring.classList.remove('active'); this.ring.style.transform = ''; this.knob.style.transform = '';
       this.recalcKeys();
     }

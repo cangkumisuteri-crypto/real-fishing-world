@@ -9,7 +9,7 @@ async function atEdge(g) {
   await g.stickDown(0, 0); await g.stickUp();
   return { spot, r };
 }
-async function prep(g) { await g.needHooks('getState'); g.needGT(); await g.start(); if (!(await g.pos())) g.untested('getState().player missing'); }
+async function prep(g) { g.needGT(); await g.start(); await g.needHooks('getState'); if (!(await g.pos())) g.untested('getState().player missing'); }
 
 test.describe('QA-08..10 fishing UI', () => {
   test('QA-08 「釣り開始」 appears at the water edge (and only there)', async ({ game: g }) => {

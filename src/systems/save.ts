@@ -6,6 +6,7 @@ export interface Settings {
   lookSens: number; // 0.5 .. 2.0
   hints: boolean; // 釣り場マーカー表示（任意のヒント）
   camera: 'first' | 'third';
+  alwaysRun: boolean; // 常に走る（起動時に走りロックをONにする）
 }
 export interface SaveData {
   version: 1;
@@ -14,7 +15,7 @@ export interface SaveData {
 }
 export const SAVE_KEY = 'realFishingWorld.save';
 export function defaultSettings(isIOS: boolean): Settings {
-  return { quality: isIOS ? 'mid' : 'high', moveSpeed: 1.0, lookSens: 1.0, hints: true, camera: 'first' };
+  return { quality: isIOS ? 'mid' : 'high', moveSpeed: 1.0, lookSens: 1.0, hints: true, camera: 'first', alwaysRun: false };
 }
 export interface LoadResult { data: SaveData; status: 'new' | 'loaded' | 'reset' | 'unavailable'; note: string }
 
@@ -35,6 +36,7 @@ export function loadSave(isIOS: boolean): LoadResult {
       lookSens: num(s.lookSens, 0.5, 2, 1),
       hints: typeof s.hints === 'boolean' ? s.hints : true,
       camera: s.camera === 'third' ? 'third' : 'first',
+      alwaysRun: typeof s.alwaysRun === 'boolean' ? s.alwaysRun : false,
     };
     let position: SaveData['position'] = null;
     if (j.position && typeof j.position.x === 'number' && typeof j.position.z === 'number' && isFinite(j.position.x) && isFinite(j.position.z)) {

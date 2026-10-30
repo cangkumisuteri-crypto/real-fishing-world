@@ -52,8 +52,9 @@ button{font:inherit;color:inherit;border:0;margin:0;padding:0;cursor:pointer;tou
 .main .lb{font-size:12px}
 .main.off{background:rgba(90,96,108,.75);opacity:.8}
 #btnBag{right:calc(var(--sa-r) + 20px + var(--main) + var(--gap));bottom:calc(var(--sa-b) + 32px + (var(--main) - 48px)/2);width:48px;height:48px}
-#btnRun{right:calc(var(--sa-r) + 20px + (var(--main) - 56px)/2);bottom:calc(var(--sa-b) + 32px + var(--main) + var(--gap));width:56px;height:56px;border-radius:50%}
-#btnRun.held{background:var(--accent)}
+#btnRun{left:calc(var(--sa-l) + 24px + (var(--joy) - 56px)/2);bottom:calc(var(--sa-b) + 24px + var(--joy) + var(--gap));width:56px;height:56px;border-radius:50%}
+#btnRun.on{background:var(--accent);border-color:#fff;box-shadow:0 0 0 3px rgba(255,138,61,.45)}
+#btnRun.on .lb{color:#fff}
 #joyRing{position:absolute;left:calc(var(--sa-l) + 24px);bottom:calc(var(--sa-b) + 24px);width:var(--joy);height:var(--joy);border-radius:50%;
   border:2px solid rgba(255,255,255,.4);background:rgba(255,255,255,.08);pointer-events:none;opacity:.8}
 #joyRing.active{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.75)}
