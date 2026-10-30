@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0b1424" />
+<meta name="format-detection" content="telephone=no" />
+<title>REAL FISHING WORLD — 波戸浦港（Phase 1 プレビュー）</title>
+<style>
+:root{
+  --sa-t: env(safe-area-inset-top, 0px); --sa-r: env(safe-area-inset-right, 0px);
+  --sa-b: env(safe-area-inset-bottom, 0px); --sa-l: env(safe-area-inset-left, 0px);
+  --gap:12px; --tb:48px; --main:72px; --mainF:80px; --joy:128px; --reel:96px;
+  --btn:rgba(12,22,38,.58); --accent:#FF8A3D; --danger:#E5484D; --ink:#fff;
+}
+@media (orientation:landscape){ :root{ --main:64px; --mainF:72px; --joy:112px; --reel:88px; } }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b1424;overscroll-behavior:none;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Noto Sans CJK JP",Meiryo,sans-serif;color:var(--ink)}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+#touch{position:fixed;inset:0;touch-action:none}
+#hud{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .25s}
+body.playing #hud{opacity:1}
+#hud [data-ui]{pointer-events:auto}
+button{font:inherit;color:inherit;border:0;margin:0;padding:0;cursor:pointer;touch-action:manipulation}
+.btn{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:var(--btn);
+  border:1.5px solid rgba(255,255,255,.35);border-radius:14px;font-weight:700;line-height:1.1;text-shadow:0 1px 2px #000,0 0 3px #0b1424;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.btn:active{background:rgba(40,60,90,.85)}
+.btn::before{content:"";position:absolute;inset:-6px}
+.btn .ic{font-size:19px;line-height:1}
+.btn .lb{font-size:10px;letter-spacing:0}
+.btn[disabled],.btn.off{opacity:.55}
+.tb{width:var(--tb);height:var(--tb);top:calc(var(--sa-t) + 8px)}
+#btnMenu{left:calc(var(--sa-l) + 16px)}
+#btnMap{right:calc(var(--sa-r) + 16px + var(--tb) + var(--gap))}
+#btnCam{right:calc(var(--sa-r) + 16px)}
+#btnGear{right:calc(var(--sa-r) + 16px)}
+#btnExit{left:calc(var(--sa-l) + 16px);background:rgba(229,72,77,.82)}
+.chip{position:absolute;top:calc(var(--sa-t) + 8px);left:calc(var(--sa-l) + 76px);right:calc(var(--sa-r) + 136px);height:var(--tb);
+  padding:4px 10px;border-radius:12px;background:var(--btn);border:1px solid rgba(255,255,255,.25);display:flex;flex-direction:column;justify-content:center;
+  font-size:12px;line-height:1.25;font-weight:700;text-shadow:0 1px 2px #000;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center}
+.chip div{overflow:hidden;text-overflow:ellipsis}
+.chip small{font-weight:600;opacity:.9;font-size:11px}
+#chipF{right:calc(var(--sa-r) + 76px)}
+.main{right:calc(var(--sa-r) + 20px);bottom:calc(var(--sa-b) + 32px);width:var(--main);height:var(--main);border-radius:50%;background:var(--accent);border-color:#fff;font-size:12px}
+.main .ic{font-size:22px}
+.main .lb{font-size:12px}
+.main.off{background:rgba(90,96,108,.75);opacity:.8}
+#btnBag{right:calc(var(--sa-r) + 20px + var(--main) + var(--gap));bottom:calc(var(--sa-b) + 32px + (var(--main) - 48px)/2);width:48px;height:48px}
+#btnRun{right:calc(var(--sa-r) + 20px + (var(--main) - 56px)/2);bottom:calc(var(--sa-b) + 32px + var(--main) + var(--gap));width:56px;height:56px;border-radius:50%}
+#btnRun.held{background:var(--accent)}
+#joyRing{position:absolute;left:calc(var(--sa-l) + 24px);bottom:calc(var(--sa-b) + 24px);width:var(--joy);height:var(--joy);border-radius:50%;
+  border:2px solid rgba(255,255,255,.4);background:rgba(255,255,255,.08);pointer-events:none;opacity:.8}
+#joyRing.active{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.75)}
+#joyKnob{position:absolute;left:50%;top:50%;width:calc(var(--joy)*.45);height:calc(var(--joy)*.45);margin:calc(var(--joy)*-.225);border-radius:50%;
+  background:rgba(255,255,255,.55);border:2px solid rgba(255,255,255,.9)}
+/* 釣りUI */
+#btnReel{left:calc(var(--sa-l) + 24px);bottom:calc(var(--sa-b) + 32px);width:var(--reel);height:var(--reel);border-radius:50%}
+#btnAction{right:calc(var(--sa-r) + 20px);bottom:calc(var(--sa-b) + 32px);width:var(--mainF);height:var(--mainF);border-radius:50%;background:rgba(90,96,108,.8)}
+#btnBait{right:calc(var(--sa-r) + 20px + (var(--mainF) - 48px)/2);bottom:calc(var(--sa-b) + 32px + var(--mainF) + var(--gap));width:48px;height:48px}
+#infoCard{position:absolute;top:calc(var(--sa-t) + 64px);left:50%;transform:translateX(-50%);width:min(320px,calc(100vw - var(--sa-l) - var(--sa-r) - 32px));
+  padding:8px 12px;border-radius:12px;background:var(--btn);border:1px solid rgba(255,255,255,.25);font-size:13px;line-height:1.45;font-weight:600;text-shadow:0 1px 2px #000}
+#infoCard b{color:#ffd37a}
+#infoCard .warn{color:#ffb4a0}
+.mv,.fs{transition:opacity .15s}
+body[data-mode="move"] .fs,body[data-mode="fish"] .mv{display:none!important}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sa-b) + 32px + var(--main) + 84px);max-width:calc(100vw - 32px);padding:9px 14px;border-radius:12px;background:rgba(10,18,32,.86);
+  border:1px solid rgba(255,255,255,.3);font-size:14px;font-weight:700;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;text-shadow:0 1px 2px #000}
+#toast.show{opacity:1}
+#hintLine{position:absolute;left:0;right:0;bottom:calc(var(--sa-b) + 4px);text-align:center;font-size:10px;opacity:.7;pointer-events:none;text-shadow:0 1px 2px #000}
+/* パネル */
+#panel{position:fixed;inset:0;z-index:40;background:rgba(6,12,22,.92);display:none;touch-action:pan-y;overflow:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(var(--sa-t) + 12px) calc(var(--sa-r) + 16px) calc(var(--sa-b) + 16px) calc(var(--sa-l) + 16px)}
+#panel.open{display:block}
+#panel h2{margin:4px 0 10px;font-size:20px;padding-right:96px}
+#panel .close{position:fixed;top:calc(var(--sa-t) + 8px);right:calc(var(--sa-r) + 16px);min-width:84px;height:44px;border-radius:12px;background:var(--accent);font-weight:800;font-size:15px;padding:0 14px;z-index:41}
+#panel .sec{background:rgba(255,255,255,.07);border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:14px;line-height:1.55}
+#panel .sec h3{margin:0 0 6px;font-size:14px;color:#ffd37a}
+#panel .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+#panel .seg button{min-height:44px;padding:0 14px;border-radius:10px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);font-weight:700;font-size:14px}
+#panel .seg button.on{background:var(--accent);border-color:#fff}
+#panel input[type=range]{width:100%;min-height:36px}
+#panel .tag{display:inline-block;padding:1px 8px;border-radius:8px;background:#6b7280;font-size:11px;margin-left:6px;vertical-align:middle}
+#panel .act{min-height:44px;padding:0 16px;border-radius:10px;background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.3);font-weight:700;font-size:14px}
+#panel .act.danger{background:rgba(229,72,77,.5)}
+#panel canvas{width:100%;max-width:520px;display:block;margin:0 auto;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:#0e4f72;touch-action:none}
+#panel ul{margin:4px 0 0 18px;padding:0}
+/* ローディング */
+#loading{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  background:linear-gradient(#173a63,#5b93b8 55%,#e8c9a0);padding:calc(var(--sa-t) + 16px) calc(var(--sa-r) + 20px) calc(var(--sa-b) + 16px) calc(var(--sa-l) + 20px);touch-action:none}
+#loading h1{margin:0;font-size:clamp(24px,7vw,40px);letter-spacing:2px;text-shadow:0 2px 6px rgba(0,0,0,.45)}
+#loading .sub{margin:6px 0 18px;font-size:14px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+#bar{width:min(300px,70vw);height:10px;border-radius:6px;background:rgba(0,0,0,.35);overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:#ffcf6e;transition:width .2s}
+#loadMsg{margin:10px 0 16px;font-size:13px;min-height:1.4em;text-shadow:0 1px 3px #000}
+#play{min-width:220px;height:60px;border-radius:30px;background:var(--accent);border:2px solid #fff;font-weight:800;font-size:20px;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+#play[disabled]{background:#6b7280;opacity:.8}
+#loading .how{margin-top:18px;font-size:12px;line-height:1.7;max-width:420px;text-shadow:0 1px 3px #000;opacity:.95}
+#loading .ver{position:absolute;bottom:calc(var(--sa-b) + 8px);font-size:11px;opacity:.7}
+/* エラー */
+#err{position:fixed;inset:0;z-index:100;background:rgba(40,0,0,.94);display:none;padding:calc(var(--sa-t) + 14px) calc(var(--sa-r) + 14px) calc(var(--sa-b) + 14px) calc(var(--sa-l) + 14px);overflow:auto;touch-action:pan-y;user-select:text;-webkit-user-select:text}
+#err.open{display:block}
+#err h2{margin:0 0 8px;font-size:18px}
+#err pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:rgba(0,0,0,.45);padding:10px;border-radius:8px;max-height:55vh;overflow:auto}
+#err button{min-height:44px;padding:0 18px;border-radius:10px;font-weight:700;font-size:15px;margin:8px 8px 0 0;background:#fff;color:#400}
+</style>
+</head>
+<body data-mode="move">
+<div id="stage"></div>
+<div id="touch"></div>
+<div id="hud" aria-live="off">
+  <div id="joyRing" class="mv"><div id="joyKnob"></div></div>
+  <button id="btnMenu" class="btn tb mv" data-ui><span class="ic">☰</span><span class="lb">メニュー</span></button>
+  <div id="chip" class="chip mv" data-ui data-info><div id="chipTop">波戸浦港</div><small id="chipSub">水辺に近づくと釣れるよ</small></div>
+  <button id="btnMap" class="btn tb mv" data-ui><span class="ic">🗺</span><span class="lb">マップ</span></button>
+  <button id="btnCam" class="btn tb mv" data-ui><span class="ic">📷</span><span class="lb">視点</span></button>
+  <button id="btnRun" class="btn mv" data-ui><span class="ic">🏃</span><span class="lb">走る</span></button>
+  <button id="btnBag" class="btn mv" data-ui><span class="ic">🎒</span><span class="lb">所持品</span></button>
+  <button id="btnFish" class="btn main mv off" data-ui><span class="ic">🎣</span><span class="lb">釣り開始</span></button>
+
+  <button id="btnExit" class="btn tb fs" data-ui><span class="ic">✕</span><span class="lb">やめる</span></button>
+  <div id="chipF" class="chip fs" data-ui data-info><div id="chipFTop">ウキ釣り（準備中）</div><small id="chipFSub">波戸浦港</small></div>
+  <button id="btnGear" class="btn tb fs off" data-ui><span class="ic">⚙</span><span class="lb">仕掛け</span></button>
+  <div id="infoCard" class="fs" data-ui data-info></div>
+  <button id="btnReel" class="btn fs off" data-ui><span class="ic">🎣</span><span class="lb">巻く（準備中）</span></button>
+  <button id="btnBait" class="btn fs off" data-ui><span class="ic">🪱</span><span class="lb">エサ</span></button>
+  <button id="btnAction" class="btn fs off" data-ui><span class="ic">🎯</span><span class="lb">キャスト</span></button>
+</div>
+<div id="toast"></div>
+<div id="panel"><button class="close" id="panelClose">閉じる</button><div id="panelBody"></div></div>
+
+<div id="loading">
+  <h1>REAL FISHING WORLD</h1>
+  <div class="sub">波戸浦港 — Phase 1 プレビュー（港を歩こう）</div>
+  <div id="bar"><i></i></div>
+  <div id="loadMsg">起動中…</div>
+  <button id="play" disabled>読み込み中…</button>
+  <div class="how">左半分をドラッグ＝移動 ／ 右半分をスワイプ＝視点<br>水辺で「釣り開始」。釣りはまだできません（構えるところまで）。<br>PC: WASD移動・ドラッグで視点・Fで釣り開始</div>
+  <div class="ver">v0.1.0 Phase 1 ・ 架空の港です</div>
+</div>
+<div id="err"><h2>⚠ エラーが発生しました</h2><div id="errMsg"></div><pre id="errStack"></pre>
+  <button onclick="location.reload()">再読み込み</button><button onclick="document.getElementById('err').classList.remove('open')">閉じる</button></div>
+<noscript><div style="position:fixed;inset:0;background:#000;color:#fff;padding:20px;z-index:200">JavaScript を有効にしてください。</div></noscript>
+<script>
+/* グローバルエラーオーバーレイ（白画面にしない） */
+(function(){
+  var shown=0;
+  window.__rfwErrors=[];
+  function show(title,detail){
+    try{
+      window.__rfwErrors.push(String(title));
+      if(shown>2) return; shown++;
+      var e=document.getElementById('err'); if(!e) return;
+      document.getElementById('errMsg').textContent=String(title);
+      document.getElementById('errStack').textContent=String(detail||'');
+      e.classList.add('open');
+      var l=document.getElementById('loadMsg'); if(l && !window.__rfwBooted) l.textContent='起動に失敗しました（エラー表示を確認してください）';
+    }catch(_){}
+  }
+  window.__rfwShowError=show;
+  window.addEventListener('error',function(ev){ var t=ev.message||'Error'; if(ev.target&&ev.target!==window&&ev.target.src) t='読み込み失敗: '+ev.target.src; show(t,(ev.error&&ev.error.stack)||(ev.filename+':'+ev.lineno+':'+ev.colno)); },true);
+  window.addEventListener('unhandledrejection',function(ev){ var r=ev.reason; show('Promise error: '+(r&&r.message||r),(r&&r.stack)||''); });
+  setTimeout(function(){ if(!window.__rfwBooted){ var l=document.getElementById('loadMsg'); if(l) l.textContent='起動に時間がかかっています…（通信が遅い可能性があります）'; } },9000);
+})();
+</script>
+<script type="module" src="/src/main.ts" onerror="window.__rfwShowError('main.ts の読み込みに失敗しました','ネットワークまたはビルド設定を確認してください')"></script>
+</body>
+</html>

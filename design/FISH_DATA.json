@@ -1,0 +1,2472 @@
+{
+  "schemaVersion": "1.0.0",
+  "status": "Phase-2 ready (design; values are in-game model, not a catch guarantee)",
+  "conventions": {
+    "length": "cm",
+    "weight": "kg",
+    "depth": "m",
+    "speed": "m/s",
+    "force": "kgf (1kgf=9.80665N)",
+    "temperature": "degC",
+    "time": "seconds in-game; hours are 24h local (0-24, ranges may wrap)",
+    "response/wariness/tendency": "0..1 unless noted",
+    "idConvention": "romaji lowercase; same ids as src/data/fish.ts (aji, saba, kasago, mebaru, chinu, seabass, tachiuo, madai, buri)",
+    "seabedZones": "sand/reef/weed/wall/deep/shallow = src/data/seabed.ts SeabedZone ids (0..5). structureTags are additional hints for world data.",
+    "timeOfDayDefinition": {
+      "dawn": "04:00-07:00 (sunrise-based in Phase 6)",
+      "day": "07:00-16:00",
+      "dusk": "16:00-19:00 (sunset-based)",
+      "night": "19:00-04:00"
+    },
+    "currentScale": "normalized 0..1: 0=still, 1=>=1.0 m/s (about 2 knots) at the fishing spot",
+    "gameCurrencyNote": "price.* is real-world market reference only. In-game money = gameBaseValue (same as fish.ts baseValue). Do not display real-money meaning.",
+    "disclaimer": "魚の活性はゲーム内モデル。実際の釣果を保証するものではない。"
+  },
+  "catalog": {
+    "lures": {
+      "sabiki": {
+        "nameJa": "サビキ仕掛け(アミカゴ)",
+        "method": "float",
+        "defaultAction": "drift",
+        "note": "コマセ(アミエビ)と同時使用。群れ寄せ効果あり"
+      },
+      "jighead_worm": {
+        "nameJa": "ジグヘッド+ワーム(アジング/メバリング/ロック)",
+        "method": "lure",
+        "defaultAction": "slow_roll",
+        "note": "0.6〜5g軽量〜根魚用テキサス/直リグ含む"
+      },
+      "minnow": {
+        "nameJa": "ミノー/シンキングペンシル",
+        "method": "lure",
+        "defaultAction": "slow_roll",
+        "note": "シーバス/青物表層〜中層"
+      },
+      "vibration": {
+        "nameJa": "バイブレーション/メタルバイブ",
+        "method": "lure",
+        "defaultAction": "lift_fall",
+        "note": "ボトム〜中層の広範囲サーチ"
+      },
+      "topwater": {
+        "nameJa": "トップウォーター(ポッパー/ペンシル)",
+        "method": "lure",
+        "defaultAction": "stop_and_go",
+        "note": "夜明け/夕マズメの表層"
+      },
+      "metal_jig": {
+        "nameJa": "メタルジグ(ショアジギング)",
+        "method": "lure",
+        "defaultAction": "jerk",
+        "note": "20〜60g。サバ/ブリ/タチウオ/シーバス"
+      },
+      "wind_jig": {
+        "nameJa": "ワインド(ジグヘッド+ピラピラワーム)",
+        "method": "lure",
+        "defaultAction": "dart",
+        "note": "タチウオ/シーバスのダート"
+      },
+      "tenya": {
+        "nameJa": "テンヤ(エサ巻き)",
+        "method": "float",
+        "defaultAction": "lift_fall",
+        "note": "タチウオテンヤ・タイテンヤ。サンマ/サバ切身 or エビ付け"
+      },
+      "tairubber": {
+        "nameJa": "タイラバ",
+        "method": "lure",
+        "defaultAction": "straight_retrieve",
+        "note": "ボート向け。ショアでは堤防からの落とし込み相当で弱め"
+      },
+      "bukuri": {
+        "nameJa": "ブラクリ/穴釣り仕掛け",
+        "method": "hole",
+        "defaultAction": "bottom_bump",
+        "note": "消波ブロック・岸壁の隙間に落とす(安全な穴釣りエリアのみ)"
+      },
+      "crab_lure": {
+        "nameJa": "チニング用クロー/ラバージグ",
+        "method": "lure",
+        "defaultAction": "bottom_bump",
+        "note": "ボトムのズル引き+ステイ"
+      }
+    },
+    "baits": {
+      "amiebi": {
+        "nameJa": "アミエビ(コマセ/付けエサ)",
+        "kind": "chum"
+      },
+      "okiami": {
+        "nameJa": "オキアミ",
+        "kind": "bait"
+      },
+      "aoiso": {
+        "nameJa": "アオイソメ",
+        "kind": "bait"
+      },
+      "ebi_live": {
+        "nameJa": "活きエビ",
+        "kind": "bait"
+      },
+      "sakana_strip": {
+        "nameJa": "サバ/サンマ/イワシ切り身",
+        "kind": "bait"
+      },
+      "ika_strip": {
+        "nameJa": "イカ短冊",
+        "kind": "bait"
+      },
+      "kani": {
+        "nameJa": "カニ",
+        "kind": "bait"
+      },
+      "corn": {
+        "nameJa": "コーン/練りエサ/ダンゴ",
+        "kind": "bait"
+      },
+      "live_fish": {
+        "nameJa": "活きアジ/イワシ(泳がせ)",
+        "kind": "bait"
+      },
+      "konoshiro_live": {
+        "nameJa": "活きコノシロ/ハク",
+        "kind": "bait"
+      }
+    },
+    "lureActions": [
+      "drift",
+      "slow_roll",
+      "stop_and_go",
+      "twitch",
+      "jerk",
+      "dart",
+      "lift_fall",
+      "fall",
+      "straight_retrieve",
+      "bottom_bump",
+      "still"
+    ],
+    "seabedZones": [
+      "sand",
+      "reef",
+      "weed",
+      "wall",
+      "deep",
+      "shallow"
+    ],
+    "seabedStructureTags": [
+      "tetra_gap",
+      "rock_hole",
+      "pier_pile",
+      "oyster_shell",
+      "sandy_edge",
+      "drop_off",
+      "weed_edge",
+      "harbor_light_edge",
+      "channel_mouth"
+    ]
+  },
+  "species": [
+    {
+      "id": "aji",
+      "nameJa": "アジ",
+      "nameEn": "Japanese jack mackerel (Horse mackerel)",
+      "rarity": "common",
+      "methods": [
+        "float",
+        "lure"
+      ],
+      "growthNames": null,
+      "depthRange": {
+        "min": 1,
+        "max": 8,
+        "preferredMin": 2,
+        "preferredMax": 5,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 14,
+        "max": 26,
+        "optMin": 18,
+        "optMax": 24
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "sand": 0.5,
+          "wall": 0.8,
+          "shallow": 0.4,
+          "reef": 0.3,
+          "deep": 0.2,
+          "weed": 0.1
+        },
+        "structureTags": [
+          "harbor_light_edge",
+          "pier_pile",
+          "channel_mouth"
+        ],
+        "note": "港内の常夜灯周り・岸壁沿いの回遊。中層〜表層が主、冬は底寄り"
+      },
+      "swimSpeed": {
+        "cruise": 0.4,
+        "burst": 2.5,
+        "unit": "m/s",
+        "refSizeCm": 20
+      },
+      "wariness": 0.3,
+      "baits": [
+        {
+          "id": "amiebi",
+          "response": 0.95
+        },
+        {
+          "id": "okiami",
+          "response": 0.7
+        },
+        {
+          "id": "aoiso",
+          "response": 0.4
+        }
+      ],
+      "lures": [
+        {
+          "id": "sabiki",
+          "response": 1.0,
+          "preferredAction": "drift"
+        },
+        {
+          "id": "jighead_worm",
+          "response": 0.9,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "minnow",
+          "response": 0.2,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "metal_jig",
+          "response": 0.15,
+          "preferredAction": "jerk"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 0.9,
+          "day": 0.45,
+          "dusk": 1.0,
+          "night": 0.6
+        },
+        "windowsHour": [
+          [
+            4,
+            8
+          ],
+          [
+            16,
+            21
+          ]
+        ],
+        "monthlyActivity": [
+          0.25,
+          0.2,
+          0.3,
+          0.5,
+          0.75,
+          0.9,
+          0.95,
+          0.95,
+          1,
+          0.9,
+          0.6,
+          0.4
+        ],
+        "tide": {
+          "best": [
+            "incoming_mid",
+            "outgoing_mid"
+          ],
+          "note": "潮が動く中潮・若潮で回遊。満潮前後の潮止まりは群れが散る"
+        },
+        "seasonNote": "初夏〜晩秋が最盛(豆アジ6-8月/中アジ・尺アジ秋)。冬は沖の深場へ落ち渋い。"
+      },
+      "currentResponse": {
+        "preferred": 0.35,
+        "tolerance": 0.3,
+        "behavior": "流れに向かい定位。潮が効く場所に群れが付く。強すぎる流れ(>0.7)では中層に避難し、サビキのカゴが流される。"
+      },
+      "lureResponse": {
+        "overall": 0.8,
+        "senses": {
+          "visual": 0.7,
+          "sound": 0.2,
+          "vibration": 0.4,
+          "scent": 0.5
+        },
+        "actionPreference": {
+          "slow_roll": 1.0,
+          "drift": 0.9,
+          "fall": 0.8,
+          "stop_and_go": 0.6,
+          "twitch": 0.4,
+          "jerk": 0.2,
+          "dart": 0.2
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 0.07,
+          "typical": 0.27,
+          "max": 1.09
+        },
+        "burstKgf": {
+          "min": 0.1,
+          "typical": 0.38,
+          "max": 1.53
+        },
+        "coef": 1.3,
+        "exponent": 0.667,
+        "burstMult": 1.4,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "小型は引きが強く感じるが絶対値は小さい(最大でも1kgf未満)。口切れ注意"
+      },
+      "rockDivingTendency": 0.02,
+      "hookOutChance": {
+        "base": 0.25,
+        "mouthSoftness": 0.9,
+        "mouthHoldRatio": 1.6,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 10,
+          "typical": 20,
+          "max": 40
+        },
+        "weightKg": {
+          "min": 0.012,
+          "typical": 0.096,
+          "max": 0.768
+        },
+        "lengthWeight": {
+          "a": 1.2e-05,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 400,
+          "max": 1500
+        },
+        "jpyPerFish": {
+          "min": 80,
+          "max": 350
+        },
+        "note": "市場価格の目安(2020年代)。豆アジは安く、尺アジ(ブランド)は高値。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 40,
+      "fight": {
+        "staminaSec": 20,
+        "headShakeFreq": 0.3,
+        "runStyle": "short_darts_then_circles",
+        "toothCut": null,
+        "refSizeKg": 0.096
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 6.0,
+          "lateralLine": 2.0,
+          "smell": 4.0
+        },
+        "lightAffinity": 0.8,
+        "lightSensitivity": 0.4,
+        "noiseSensitivity": 0.4,
+        "lineVisibilitySensitivity": 0.45,
+        "schooling": true,
+        "schoolSize": [
+          10,
+          200
+        ],
+        "inspectSec": {
+          "min": 0.4,
+          "max": 1.5
+        },
+        "biteType": "suck",
+        "strikeCommitP": 0.75,
+        "fleeCooldownSec": {
+          "min": 3,
+          "max": 15
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "sand",
+          "wall",
+          "shallow"
+        ],
+        "power": 0.2,
+        "baseValue": 40,
+        "minTackle": 0.1,
+        "wariness": 0.3
+      },
+      "designNote": "ゲーム入門魚。群れで回遊しコマセが効く。ハリスが太い/見えると食いが落ちる(ライン視認性)。"
+    },
+    {
+      "id": "saba",
+      "nameJa": "サバ",
+      "nameEn": "Chub mackerel",
+      "rarity": "common",
+      "methods": [
+        "float",
+        "lure"
+      ],
+      "growthNames": null,
+      "depthRange": {
+        "min": 2,
+        "max": 12,
+        "preferredMin": 3,
+        "preferredMax": 8,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 14,
+        "max": 25,
+        "optMin": 18,
+        "optMax": 23
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "deep": 0.7,
+          "wall": 0.6,
+          "shallow": 0.2,
+          "sand": 0.3,
+          "reef": 0.2
+        },
+        "structureTags": [
+          "channel_mouth",
+          "drop_off"
+        ],
+        "note": "外洋寄りの回遊魚。海底より水柱(中層〜表層)に付き、ベイトを追って岸寄りする"
+      },
+      "swimSpeed": {
+        "cruise": 0.8,
+        "burst": 4.5,
+        "unit": "m/s",
+        "refSizeCm": 30
+      },
+      "wariness": 0.3,
+      "baits": [
+        {
+          "id": "amiebi",
+          "response": 0.85
+        },
+        {
+          "id": "okiami",
+          "response": 0.7
+        },
+        {
+          "id": "sakana_strip",
+          "response": 0.6
+        },
+        {
+          "id": "aoiso",
+          "response": 0.4
+        }
+      ],
+      "lures": [
+        {
+          "id": "sabiki",
+          "response": 0.95,
+          "preferredAction": "drift"
+        },
+        {
+          "id": "metal_jig",
+          "response": 0.95,
+          "preferredAction": "jerk"
+        },
+        {
+          "id": "minnow",
+          "response": 0.6,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "jighead_worm",
+          "response": 0.4,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "topwater",
+          "response": 0.3,
+          "preferredAction": "stop_and_go"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 1.0,
+          "day": 0.6,
+          "dusk": 0.9,
+          "night": 0.2
+        },
+        "windowsHour": [
+          [
+            5,
+            9
+          ],
+          [
+            16,
+            20
+          ]
+        ],
+        "monthlyActivity": [
+          0.1,
+          0.1,
+          0.15,
+          0.3,
+          0.5,
+          0.7,
+          0.9,
+          1,
+          1,
+          0.9,
+          0.5,
+          0.2
+        ],
+        "tide": {
+          "best": [
+            "incoming_mid",
+            "outgoing_mid"
+          ],
+          "note": "潮が速く動く時に回遊。ベイト(イワシ/小アジ)接岸とセット"
+        },
+        "seasonNote": "夏〜秋の回遊が最盛(小サバ→良型)。冬は沖。回遊待ちで『ムラ』が大きい。"
+      },
+      "currentResponse": {
+        "preferred": 0.55,
+        "tolerance": 0.3,
+        "behavior": "流れに乗って回遊。やや速い流れを好み、潮目に付く。"
+      },
+      "lureResponse": {
+        "overall": 0.9,
+        "senses": {
+          "visual": 0.8,
+          "sound": 0.3,
+          "vibration": 0.5,
+          "scent": 0.3
+        },
+        "actionPreference": {
+          "jerk": 1.0,
+          "straight_retrieve": 0.9,
+          "slow_roll": 0.8,
+          "stop_and_go": 0.5,
+          "drift": 0.7,
+          "fall": 0.5,
+          "twitch": 0.5
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 0.22,
+          "typical": 0.9,
+          "max": 2.49
+        },
+        "burstKgf": {
+          "min": 0.33,
+          "typical": 1.35,
+          "max": 3.74
+        },
+        "coef": 1.8,
+        "exponent": 0.667,
+        "burstMult": 1.5,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "見た目以上に走る。横に走って糸を出す。ジギングでは外道の代表"
+      },
+      "rockDivingTendency": 0.05,
+      "hookOutChance": {
+        "base": 0.2,
+        "mouthSoftness": 0.7,
+        "mouthHoldRatio": 1.5,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 15,
+          "typical": 30,
+          "max": 50
+        },
+        "weightKg": {
+          "min": 0.044,
+          "typical": 0.351,
+          "max": 1.625
+        },
+        "lengthWeight": {
+          "a": 1.3e-05,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 300,
+          "max": 900
+        },
+        "jpyPerFish": {
+          "min": 100,
+          "max": 600
+        },
+        "note": "鮮度が落ちやすい(いわゆる“サバの生き腐れ”)。ブランドサバは1kgで1500円超も。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 50,
+      "fight": {
+        "staminaSec": 35,
+        "headShakeFreq": 0.4,
+        "runStyle": "fast_lateral_runs",
+        "toothCut": null,
+        "refSizeKg": 0.351
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 8.0,
+          "lateralLine": 3.0,
+          "smell": 3.0
+        },
+        "lightAffinity": 0.8,
+        "lightSensitivity": 0.3,
+        "noiseSensitivity": 0.3,
+        "lineVisibilitySensitivity": 0.3,
+        "schooling": true,
+        "schoolSize": [
+          20,
+          500
+        ],
+        "inspectSec": {
+          "min": 0.2,
+          "max": 0.9
+        },
+        "biteType": "chase",
+        "strikeCommitP": 0.85,
+        "fleeCooldownSec": {
+          "min": 2,
+          "max": 10
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "deep",
+          "wall"
+        ],
+        "power": 0.35,
+        "baseValue": 50,
+        "minTackle": 0.2,
+        "wariness": 0.3
+      },
+      "designNote": "回遊魚で活性スイッチが入ると連発、抜けると完全に無反応。ベイト有無で出現率が大きく変わる。"
+    },
+    {
+      "id": "kasago",
+      "nameJa": "カサゴ",
+      "nameEn": "Marbled rockfish (Kasago)",
+      "rarity": "common",
+      "methods": [
+        "hole",
+        "lure",
+        "float"
+      ],
+      "growthNames": null,
+      "depthRange": {
+        "min": 1,
+        "max": 10,
+        "preferredMin": 1,
+        "preferredMax": 6,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 10,
+        "max": 25,
+        "optMin": 12,
+        "optMax": 20
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "reef": 1.0,
+          "wall": 0.8,
+          "weed": 0.3,
+          "sand": 0.05,
+          "shallow": 0.4,
+          "deep": 0.3
+        },
+        "structureTags": [
+          "tetra_gap",
+          "rock_hole",
+          "pier_pile",
+          "oyster_shell"
+        ],
+        "note": "根・消波ブロックの隙間・岸壁の石組みに定着。縄張り的で移動量が小さい"
+      },
+      "swimSpeed": {
+        "cruise": 0.1,
+        "burst": 1.5,
+        "unit": "m/s",
+        "refSizeCm": 22
+      },
+      "wariness": 0.25,
+      "baits": [
+        {
+          "id": "sakana_strip",
+          "response": 0.85
+        },
+        {
+          "id": "aoiso",
+          "response": 0.8
+        },
+        {
+          "id": "ika_strip",
+          "response": 0.75
+        },
+        {
+          "id": "ebi_live",
+          "response": 0.8
+        },
+        {
+          "id": "okiami",
+          "response": 0.35
+        }
+      ],
+      "lures": [
+        {
+          "id": "bukuri",
+          "response": 1.0,
+          "preferredAction": "bottom_bump"
+        },
+        {
+          "id": "jighead_worm",
+          "response": 0.85,
+          "preferredAction": "bottom_bump"
+        },
+        {
+          "id": "vibration",
+          "response": 0.3,
+          "preferredAction": "lift_fall"
+        },
+        {
+          "id": "crab_lure",
+          "response": 0.35,
+          "preferredAction": "bottom_bump"
+        },
+        {
+          "id": "metal_jig",
+          "response": 0.2,
+          "preferredAction": "lift_fall"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 0.8,
+          "day": 0.6,
+          "dusk": 0.9,
+          "night": 1.0
+        },
+        "windowsHour": [
+          [
+            0,
+            24
+          ]
+        ],
+        "monthlyActivity": [
+          0.8,
+          0.85,
+          0.85,
+          0.8,
+          0.7,
+          0.6,
+          0.55,
+          0.55,
+          0.6,
+          0.75,
+          0.9,
+          0.9
+        ],
+        "tide": {
+          "best": [
+            "incoming_mid",
+            "outgoing_mid"
+          ],
+          "note": "潮が動くと穴から出て捕食。昼でも穴の前に落とせば食う(穴釣り)"
+        },
+        "seasonNote": "通年。水温が下がる晩秋〜冬〜春が型・数ともに良い。夏は浅場から深場へ。"
+      },
+      "currentResponse": {
+        "preferred": 0.2,
+        "tolerance": 0.25,
+        "behavior": "流れの弱い穴・根の際に定位。強い流れでは穴の奥に引っ込む。"
+      },
+      "lureResponse": {
+        "overall": 0.7,
+        "senses": {
+          "visual": 0.4,
+          "sound": 0.2,
+          "vibration": 0.6,
+          "scent": 0.8
+        },
+        "actionPreference": {
+          "bottom_bump": 1.0,
+          "still": 0.8,
+          "lift_fall": 0.6,
+          "fall": 0.7,
+          "slow_roll": 0.4,
+          "twitch": 0.3,
+          "jerk": 0.1
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 0.31,
+          "typical": 1.03,
+          "max": 2.62
+        },
+        "burstKgf": {
+          "min": 0.46,
+          "typical": 1.54,
+          "max": 3.93
+        },
+        "coef": 3.0,
+        "exponent": 0.667,
+        "burstMult": 1.5,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "小型でも掛けた瞬間に根へ潜る強い初動。引きの絶対値より“根に入られる”リスクが本体"
+      },
+      "rockDivingTendency": 0.95,
+      "hookOutChance": {
+        "base": 0.05,
+        "mouthSoftness": 0.2,
+        "mouthHoldRatio": 4.0,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 12,
+          "typical": 22,
+          "max": 35
+        },
+        "weightKg": {
+          "min": 0.033,
+          "typical": 0.202,
+          "max": 0.815
+        },
+        "lengthWeight": {
+          "a": 1.9e-05,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 1500,
+          "max": 4000
+        },
+        "jpyPerFish": {
+          "min": 300,
+          "max": 1200
+        },
+        "note": "高級魚扱い(煮付け/唐揚げ)。活魚はさらに高値。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 80,
+      "fight": {
+        "staminaSec": 25,
+        "headShakeFreq": 0.2,
+        "runStyle": "dive_to_hole_and_brace",
+        "toothCut": null,
+        "refSizeKg": 0.202
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 2.5,
+          "lateralLine": 2.0,
+          "smell": 4.0
+        },
+        "lightAffinity": 0.2,
+        "lightSensitivity": 0.3,
+        "noiseSensitivity": 0.35,
+        "lineVisibilitySensitivity": 0.2,
+        "schooling": false,
+        "schoolSize": [
+          1,
+          1
+        ],
+        "inspectSec": {
+          "min": 0.6,
+          "max": 2.5
+        },
+        "biteType": "gulp",
+        "strikeCommitP": 0.9,
+        "fleeCooldownSec": {
+          "min": 8,
+          "max": 40
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "reef",
+          "wall"
+        ],
+        "power": 0.3,
+        "baseValue": 80,
+        "minTackle": 0.1,
+        "wariness": 0.25
+      },
+      "designNote": "穴釣りの主役。ほぼ飲み込む(針外れ少)。ただし掛かった直後が勝負で、一度根に入られるとラインブレイクしやすい。"
+    },
+    {
+      "id": "mebaru",
+      "nameJa": "メバル",
+      "nameEn": "Japanese black rockfish (Mebaru)",
+      "rarity": "common",
+      "methods": [
+        "float",
+        "lure"
+      ],
+      "growthNames": null,
+      "depthRange": {
+        "min": 1,
+        "max": 8,
+        "preferredMin": 1,
+        "preferredMax": 4,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 8,
+        "max": 20,
+        "optMin": 10,
+        "optMax": 16
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "weed": 1.0,
+          "reef": 0.8,
+          "wall": 0.8,
+          "shallow": 0.6,
+          "sand": 0.05,
+          "deep": 0.1
+        },
+        "structureTags": [
+          "weed_edge",
+          "harbor_light_edge",
+          "pier_pile",
+          "drop_off"
+        ],
+        "note": "藻場・岸壁際・常夜灯下の明暗境界。夜は表層〜中層に浮く"
+      },
+      "swimSpeed": {
+        "cruise": 0.2,
+        "burst": 1.5,
+        "unit": "m/s",
+        "refSizeCm": 20
+      },
+      "wariness": 0.4,
+      "baits": [
+        {
+          "id": "okiami",
+          "response": 0.6
+        },
+        {
+          "id": "aoiso",
+          "response": 0.7
+        },
+        {
+          "id": "ebi_live",
+          "response": 0.9
+        },
+        {
+          "id": "amiebi",
+          "response": 0.4
+        }
+      ],
+      "lures": [
+        {
+          "id": "jighead_worm",
+          "response": 1.0,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "minnow",
+          "response": 0.5,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "vibration",
+          "response": 0.2,
+          "preferredAction": "lift_fall"
+        },
+        {
+          "id": "topwater",
+          "response": 0.15,
+          "preferredAction": "stop_and_go"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 0.8,
+          "day": 0.2,
+          "dusk": 1.0,
+          "night": 1.0
+        },
+        "windowsHour": [
+          [
+            17,
+            24
+          ],
+          [
+            0,
+            5
+          ]
+        ],
+        "monthlyActivity": [
+          0.9,
+          1,
+          1,
+          0.9,
+          0.6,
+          0.3,
+          0.15,
+          0.1,
+          0.15,
+          0.3,
+          0.6,
+          0.8
+        ],
+        "tide": {
+          "best": [
+            "incoming_mid",
+            "outgoing_mid"
+          ],
+          "note": "夜の下げ潮〜潮が動き出す時合。潮止まりは沈黙"
+        },
+        "seasonNote": "晩秋〜春(産仔期は冬〜早春)が本番。夏は深場で釣りにくい。"
+      },
+      "currentResponse": {
+        "preferred": 0.25,
+        "tolerance": 0.2,
+        "behavior": "弱い流れが当たる藻の際。ゆっくり漂う餌を好む(速い流れは嫌う)。"
+      },
+      "lureResponse": {
+        "overall": 0.85,
+        "senses": {
+          "visual": 0.8,
+          "sound": 0.1,
+          "vibration": 0.3,
+          "scent": 0.4
+        },
+        "actionPreference": {
+          "slow_roll": 1.0,
+          "drift": 0.9,
+          "stop_and_go": 0.6,
+          "fall": 0.6,
+          "still": 0.5,
+          "twitch": 0.3,
+          "jerk": 0.1
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 0.18,
+          "typical": 0.49,
+          "max": 1.25
+        },
+        "burstKgf": {
+          "min": 0.25,
+          "typical": 0.69,
+          "max": 1.75
+        },
+        "coef": 2.0,
+        "exponent": 0.667,
+        "burstMult": 1.4,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "小型だがグッと突っ込む。引きはカサゴより弱い"
+      },
+      "rockDivingTendency": 0.4,
+      "hookOutChance": {
+        "base": 0.2,
+        "mouthSoftness": 0.8,
+        "mouthHoldRatio": 1.7,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 12,
+          "typical": 20,
+          "max": 32
+        },
+        "weightKg": {
+          "min": 0.026,
+          "typical": 0.12,
+          "max": 0.492
+        },
+        "lengthWeight": {
+          "a": 1.5e-05,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 1500,
+          "max": 4000
+        },
+        "jpyPerFish": {
+          "min": 250,
+          "max": 900
+        },
+        "note": "産地・天然物は高値(煮付け)。釣りで食べる魚としても人気。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 90,
+      "fight": {
+        "staminaSec": 25,
+        "headShakeFreq": 0.35,
+        "runStyle": "short_dives_to_weed",
+        "toothCut": null,
+        "refSizeKg": 0.12
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 5.0,
+          "lateralLine": 2.0,
+          "smell": 3.0
+        },
+        "lightAffinity": 0.5,
+        "lightSensitivity": 0.75,
+        "noiseSensitivity": 0.5,
+        "lineVisibilitySensitivity": 0.65,
+        "schooling": false,
+        "schoolSize": [
+          1,
+          6
+        ],
+        "inspectSec": {
+          "min": 0.8,
+          "max": 3.0
+        },
+        "biteType": "peck",
+        "strikeCommitP": 0.6,
+        "fleeCooldownSec": {
+          "min": 5,
+          "max": 25
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "weed",
+          "reef",
+          "wall"
+        ],
+        "power": 0.25,
+        "baseValue": 90,
+        "minTackle": 0.1,
+        "wariness": 0.4
+      },
+      "designNote": "繊細で明暗に敏感。リーダーが太い/見える/動きが速いと見切る。『ふんわり漂う』誘いが最強。"
+    },
+    {
+      "id": "chinu",
+      "nameJa": "チヌ(クロダイ)",
+      "nameEn": "Yellowfin seabream / Black sea bream (Chinu)",
+      "rarity": "uncommon",
+      "methods": [
+        "float",
+        "lure"
+      ],
+      "growthNames": {
+        "<25": "カイズ",
+        "25-40": "チヌ",
+        "40+": "年なし(尾張り)"
+      },
+      "depthRange": {
+        "min": 1,
+        "max": 7,
+        "preferredMin": 1,
+        "preferredMax": 4,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 12,
+        "max": 28,
+        "optMin": 18,
+        "optMax": 26
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "reef": 0.9,
+          "weed": 0.8,
+          "wall": 0.8,
+          "shallow": 0.9,
+          "sand": 0.5,
+          "deep": 0.1
+        },
+        "structureTags": [
+          "oyster_shell",
+          "pier_pile",
+          "weed_edge",
+          "sandy_edge",
+          "channel_mouth"
+        ],
+        "note": "河口/内湾の牡蠣殻付き岸壁・捨て石・藻場。底を這って貝・カニを漁る"
+      },
+      "swimSpeed": {
+        "cruise": 0.5,
+        "burst": 3.0,
+        "unit": "m/s",
+        "refSizeCm": 40
+      },
+      "wariness": 0.7,
+      "baits": [
+        {
+          "id": "okiami",
+          "response": 0.8
+        },
+        {
+          "id": "corn",
+          "response": 0.75
+        },
+        {
+          "id": "kani",
+          "response": 0.9
+        },
+        {
+          "id": "aoiso",
+          "response": 0.65
+        },
+        {
+          "id": "ebi_live",
+          "response": 0.7
+        }
+      ],
+      "lures": [
+        {
+          "id": "crab_lure",
+          "response": 0.85,
+          "preferredAction": "bottom_bump"
+        },
+        {
+          "id": "jighead_worm",
+          "response": 0.55,
+          "preferredAction": "bottom_bump"
+        },
+        {
+          "id": "topwater",
+          "response": 0.45,
+          "preferredAction": "stop_and_go"
+        },
+        {
+          "id": "minnow",
+          "response": 0.3,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "vibration",
+          "response": 0.3,
+          "preferredAction": "lift_fall"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 1.0,
+          "day": 0.6,
+          "dusk": 0.9,
+          "night": 0.5
+        },
+        "windowsHour": [
+          [
+            5,
+            10
+          ],
+          [
+            17,
+            22
+          ]
+        ],
+        "monthlyActivity": [
+          0.15,
+          0.15,
+          0.3,
+          0.6,
+          0.9,
+          0.9,
+          0.8,
+          0.85,
+          1,
+          0.95,
+          0.6,
+          0.3
+        ],
+        "tide": {
+          "best": [
+            "incoming_mid",
+            "outgoing_mid"
+          ],
+          "note": "上げ潮で浅場へ差す。春の“ノッコミ”と秋の荒食い、梅雨〜夏のトップが有名"
+        },
+        "seasonNote": "春(産卵前の乗っ込み 4-6月)と秋が好期。真冬は深場で渋い。夏は夜〜朝まずめのトップも。"
+      },
+      "currentResponse": {
+        "preferred": 0.3,
+        "tolerance": 0.25,
+        "behavior": "弱〜中程度の流れで底付近に定位。流れの当たるカケアガリ・ヨレに付く。濁り(ササ濁り)に強い反応。"
+      },
+      "lureResponse": {
+        "overall": 0.55,
+        "senses": {
+          "visual": 0.6,
+          "sound": 0.3,
+          "vibration": 0.4,
+          "scent": 0.7
+        },
+        "actionPreference": {
+          "bottom_bump": 1.0,
+          "still": 0.8,
+          "stop_and_go": 0.6,
+          "slow_roll": 0.5,
+          "fall": 0.6,
+          "twitch": 0.3,
+          "jerk": 0.15
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 0.71,
+          "typical": 2.84,
+          "max": 7.51
+        },
+        "burstKgf": {
+          "min": 1.06,
+          "typical": 4.26,
+          "max": 11.27
+        },
+        "coef": 2.8,
+        "exponent": 0.667,
+        "burstMult": 1.5,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "重い突っ込みと首振り。根・杭に走る。口が固く針掛かりは良い"
+      },
+      "rockDivingTendency": 0.6,
+      "hookOutChance": {
+        "base": 0.12,
+        "mouthSoftness": 0.3,
+        "mouthHoldRatio": 3.0,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 20,
+          "typical": 40,
+          "max": 65
+        },
+        "weightKg": {
+          "min": 0.128,
+          "typical": 1.024,
+          "max": 4.394
+        },
+        "lengthWeight": {
+          "a": 1.6e-05,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 600,
+          "max": 1500
+        },
+        "jpyPerFish": {
+          "min": 500,
+          "max": 3500
+        },
+        "note": "クセがあり市場価値は中程度。釣り魚としての評価は高い。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 220,
+      "fight": {
+        "staminaSec": 60,
+        "headShakeFreq": 0.5,
+        "runStyle": "powerful_runs_to_structure",
+        "toothCut": null,
+        "refSizeKg": 1.024
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 4.0,
+          "lateralLine": 2.5,
+          "smell": 5.0
+        },
+        "lightAffinity": 0.5,
+        "lightSensitivity": 0.5,
+        "noiseSensitivity": 0.8,
+        "lineVisibilitySensitivity": 0.9,
+        "schooling": false,
+        "schoolSize": [
+          1,
+          3
+        ],
+        "inspectSec": {
+          "min": 1.5,
+          "max": 6.0
+        },
+        "biteType": "mouth_and_spit",
+        "strikeCommitP": 0.45,
+        "fleeCooldownSec": {
+          "min": 15,
+          "max": 90
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "reef",
+          "weed",
+          "wall",
+          "shallow"
+        ],
+        "power": 0.55,
+        "baseValue": 220,
+        "minTackle": 0.35,
+        "wariness": 0.7
+      },
+      "designNote": "警戒心が高く、咥えて吐き出す探り食い。ラインの存在・足音・影に強く反応する“知能戦”の魚。"
+    },
+    {
+      "id": "seabass",
+      "nameJa": "シーバス(スズキ)",
+      "nameEn": "Japanese sea bass (Seabass / Suzuki)",
+      "rarity": "uncommon",
+      "methods": [
+        "lure",
+        "float"
+      ],
+      "growthNames": {
+        "<40": "セイゴ",
+        "40-60": "フッコ",
+        "60+": "スズキ"
+      },
+      "depthRange": {
+        "min": 1,
+        "max": 10,
+        "preferredMin": 1,
+        "preferredMax": 5,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 12,
+        "max": 27,
+        "optMin": 15,
+        "optMax": 24
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "wall": 0.9,
+          "shallow": 0.8,
+          "reef": 0.7,
+          "sand": 0.5,
+          "weed": 0.4,
+          "deep": 0.2
+        },
+        "structureTags": [
+          "harbor_light_edge",
+          "pier_pile",
+          "channel_mouth",
+          "drop_off",
+          "tetra_gap"
+        ],
+        "note": "河口・港湾の明暗境界、橋脚、流れのヨレ。ベイトを待ち伏せ"
+      },
+      "swimSpeed": {
+        "cruise": 0.7,
+        "burst": 4.0,
+        "unit": "m/s",
+        "refSizeCm": 70
+      },
+      "wariness": 0.6,
+      "baits": [
+        {
+          "id": "konoshiro_live",
+          "response": 0.9
+        },
+        {
+          "id": "aoiso",
+          "response": 0.6
+        },
+        {
+          "id": "ebi_live",
+          "response": 0.7
+        },
+        {
+          "id": "live_fish",
+          "response": 0.8
+        }
+      ],
+      "lures": [
+        {
+          "id": "minnow",
+          "response": 1.0,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "topwater",
+          "response": 0.7,
+          "preferredAction": "stop_and_go"
+        },
+        {
+          "id": "vibration",
+          "response": 0.8,
+          "preferredAction": "lift_fall"
+        },
+        {
+          "id": "wind_jig",
+          "response": 0.65,
+          "preferredAction": "dart"
+        },
+        {
+          "id": "jighead_worm",
+          "response": 0.75,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "metal_jig",
+          "response": 0.5,
+          "preferredAction": "jerk"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 1.0,
+          "day": 0.3,
+          "dusk": 1.0,
+          "night": 1.0
+        },
+        "windowsHour": [
+          [
+            17,
+            24
+          ],
+          [
+            0,
+            6
+          ]
+        ],
+        "monthlyActivity": [
+          0.4,
+          0.35,
+          0.4,
+          0.55,
+          0.7,
+          0.75,
+          0.7,
+          0.7,
+          0.9,
+          1,
+          0.9,
+          0.6
+        ],
+        "tide": {
+          "best": [
+            "outgoing_early",
+            "incoming_early",
+            "tide_change"
+          ],
+          "note": "“潮の動き出し/潮変わり”に捕食。明暗の流れ込みで待つ"
+        },
+        "seasonNote": "秋の落ち(9-11月)が最盛。春はバチ抜け(夜の表層)。夏は河川/浅場で夜。"
+      },
+      "currentResponse": {
+        "preferred": 0.6,
+        "tolerance": 0.3,
+        "behavior": "流れのヨレ・当たり面で待ち伏せ。流速が上がるほど活性が上がるが、強すぎると底へ避難。"
+      },
+      "lureResponse": {
+        "overall": 0.8,
+        "senses": {
+          "visual": 0.7,
+          "sound": 0.5,
+          "vibration": 0.7,
+          "scent": 0.2
+        },
+        "actionPreference": {
+          "slow_roll": 1.0,
+          "stop_and_go": 0.9,
+          "twitch": 0.7,
+          "lift_fall": 0.75,
+          "dart": 0.7,
+          "jerk": 0.6,
+          "drift": 0.8,
+          "straight_retrieve": 0.8,
+          "fall": 0.5
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 1.11,
+          "typical": 4.43,
+          "max": 9.03
+        },
+        "burstKgf": {
+          "min": 1.67,
+          "typical": 6.64,
+          "max": 13.54
+        },
+        "coef": 2.0,
+        "exponent": 0.667,
+        "burstMult": 1.5,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "エラ洗い(ジャンプ+首振り)で針外れを誘う。橋脚・テトラ・ブレイクへ走る"
+      },
+      "rockDivingTendency": 0.55,
+      "hookOutChance": {
+        "base": 0.3,
+        "mouthSoftness": 0.5,
+        "mouthHoldRatio": 2.2,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 35,
+          "typical": 70,
+          "max": 100
+        },
+        "weightKg": {
+          "min": 0.412,
+          "typical": 3.293,
+          "max": 9.6
+        },
+        "lengthWeight": {
+          "a": 9.6e-06,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 700,
+          "max": 1800
+        },
+        "jpyPerFish": {
+          "min": 1500,
+          "max": 9000
+        },
+        "note": "夏の洗い・天然物は高値。大型は個体差が大きい。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 350,
+      "fight": {
+        "staminaSec": 70,
+        "headShakeFreq": 0.8,
+        "runStyle": "gill_shakes_and_structure_runs",
+        "toothCut": null,
+        "refSizeKg": 3.293
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 6.0,
+          "lateralLine": 4.0,
+          "smell": 2.0
+        },
+        "lightAffinity": 0.35,
+        "lightSensitivity": 0.6,
+        "noiseSensitivity": 0.55,
+        "lineVisibilitySensitivity": 0.5,
+        "schooling": false,
+        "schoolSize": [
+          1,
+          4
+        ],
+        "inspectSec": {
+          "min": 0.5,
+          "max": 2.5
+        },
+        "biteType": "chase",
+        "strikeCommitP": 0.7,
+        "fleeCooldownSec": {
+          "min": 10,
+          "max": 60
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "wall",
+          "shallow",
+          "reef"
+        ],
+        "power": 0.7,
+        "baseValue": 350,
+        "minTackle": 0.5,
+        "wariness": 0.6
+      },
+      "designNote": "『エラ洗い』と『根/橋脚への突進』が特徴。ルアーのアクションに明確な好みがあり、流れ・ベイトと明暗の条件が合致した時合に絞られる。"
+    },
+    {
+      "id": "tachiuo",
+      "nameJa": "タチウオ",
+      "nameEn": "Largehead hairtail (Cutlassfish / Tachiuo)",
+      "rarity": "uncommon",
+      "methods": [
+        "lure",
+        "float"
+      ],
+      "growthNames": {
+        "fingers": "指3本(約80cm)〜指5本(約110cm)"
+      },
+      "depthRange": {
+        "min": 3,
+        "max": 20,
+        "preferredMin": 3,
+        "preferredMax": 12,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 16,
+        "max": 27,
+        "optMin": 20,
+        "optMax": 25
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "deep": 0.9,
+          "wall": 0.7,
+          "sand": 0.4,
+          "shallow": 0.2,
+          "reef": 0.1
+        },
+        "structureTags": [
+          "harbor_light_edge",
+          "channel_mouth",
+          "drop_off"
+        ],
+        "note": "夜は表層〜中層へ浮上し、昼は深場の底付近。垂直移動が顕著。ナイトゲームで常夜灯下のベイトを追う"
+      },
+      "swimSpeed": {
+        "cruise": 0.5,
+        "burst": 3.0,
+        "unit": "m/s",
+        "refSizeCm": 95
+      },
+      "wariness": 0.5,
+      "baits": [
+        {
+          "id": "sakana_strip",
+          "response": 1.0
+        },
+        {
+          "id": "live_fish",
+          "response": 0.8
+        },
+        {
+          "id": "okiami",
+          "response": 0.15
+        }
+      ],
+      "lures": [
+        {
+          "id": "tenya",
+          "response": 1.0,
+          "preferredAction": "lift_fall"
+        },
+        {
+          "id": "wind_jig",
+          "response": 0.9,
+          "preferredAction": "dart"
+        },
+        {
+          "id": "metal_jig",
+          "response": 0.85,
+          "preferredAction": "jerk"
+        },
+        {
+          "id": "minnow",
+          "response": 0.5,
+          "preferredAction": "slow_roll"
+        },
+        {
+          "id": "jighead_worm",
+          "response": 0.45,
+          "preferredAction": "lift_fall"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 0.8,
+          "day": 0.15,
+          "dusk": 1.0,
+          "night": 0.9
+        },
+        "windowsHour": [
+          [
+            17,
+            23
+          ],
+          [
+            3,
+            6
+          ]
+        ],
+        "monthlyActivity": [
+          0.05,
+          0.05,
+          0.05,
+          0.1,
+          0.2,
+          0.3,
+          0.5,
+          0.8,
+          1,
+          1,
+          0.8,
+          0.3
+        ],
+        "tide": {
+          "best": [
+            "incoming_mid",
+            "outgoing_mid",
+            "tide_change"
+          ],
+          "note": "潮が動く夕マズメ〜夜。常夜灯周りのベイトに付く。ベイト移動で『群れで来て、去る』"
+        },
+        "seasonNote": "晩夏〜初冬(8-12月)。湾内の群れ接岸中のみ釣れる。真冬はほぼ釣れない。"
+      },
+      "currentResponse": {
+        "preferred": 0.4,
+        "tolerance": 0.3,
+        "behavior": "流れに乗って回遊。ゆるい流れで表層〜中層に浮く。極端な流れや濁りでは活性低下。"
+      },
+      "lureResponse": {
+        "overall": 0.9,
+        "senses": {
+          "visual": 0.9,
+          "sound": 0.1,
+          "vibration": 0.4,
+          "scent": 0.5
+        },
+        "actionPreference": {
+          "lift_fall": 1.0,
+          "dart": 0.9,
+          "jerk": 0.75,
+          "slow_roll": 0.7,
+          "stop_and_go": 0.6,
+          "straight_retrieve": 0.6,
+          "fall": 0.8,
+          "twitch": 0.5
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 0.68,
+          "typical": 1.71,
+          "max": 3.72
+        },
+        "burstKgf": {
+          "min": 0.95,
+          "typical": 2.39,
+          "max": 5.21
+        },
+        "coef": 2.2,
+        "exponent": 0.667,
+        "burstMult": 1.4,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "重量に比して引きは軽め。細長く、首を振る。歯でラインを切る"
+      },
+      "rockDivingTendency": 0.05,
+      "hookOutChance": {
+        "base": 0.15,
+        "mouthSoftness": 0.5,
+        "mouthHoldRatio": 2.5,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 60,
+          "typical": 95,
+          "max": 140
+        },
+        "weightKg": {
+          "min": 0.173,
+          "typical": 0.686,
+          "max": 2.195
+        },
+        "lengthWeight": {
+          "a": 8e-07,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 1000,
+          "max": 3500
+        },
+        "jpyPerFish": {
+          "min": 500,
+          "max": 4000
+        },
+        "note": "指幅(指3〜5本)で価格が大きく変わる。大型は高値(銀色の皮を剥がさず運ぶ)。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 320,
+      "fight": {
+        "staminaSec": 45,
+        "headShakeFreq": 0.7,
+        "runStyle": "short_runs_and_headshakes_with_tooth_cuts",
+        "toothCut": {
+          "nonWireLeaderCutChancePerBite": 0.45,
+          "wireLeaderCutChancePerBite": 0.03,
+          "note": "歯が鋭くナイロン/フロロのリーダーは切られやすい。ワイヤー/太ハリスで軽減"
+        },
+        "refSizeKg": 0.686
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 7.0,
+          "lateralLine": 3.0,
+          "smell": 2.0
+        },
+        "lightAffinity": 0.7,
+        "lightSensitivity": 0.35,
+        "noiseSensitivity": 0.2,
+        "lineVisibilitySensitivity": 0.35,
+        "schooling": true,
+        "schoolSize": [
+          3,
+          30
+        ],
+        "inspectSec": {
+          "min": 0.3,
+          "max": 1.5
+        },
+        "biteType": "peck_then_swallow",
+        "strikeCommitP": 0.65,
+        "fleeCooldownSec": {
+          "min": 5,
+          "max": 30
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "deep",
+          "wall"
+        ],
+        "power": 0.5,
+        "baseValue": 320,
+        "minTackle": 0.4,
+        "wariness": 0.5
+      },
+      "designNote": "アタリは『ガツガツ→ズン』。合わせが早すぎると外れ、遅いと切られる。群れで来る時合が短い。"
+    },
+    {
+      "id": "madai",
+      "nameJa": "マダイ",
+      "nameEn": "Red seabream / Pagrus major (Madai)",
+      "rarity": "rare",
+      "methods": [
+        "float",
+        "lure"
+      ],
+      "growthNames": {
+        "<20": "チャリコ",
+        "20-40": "カスゴ",
+        "40+": "マダイ"
+      },
+      "depthRange": {
+        "min": 5,
+        "max": 30,
+        "preferredMin": 8,
+        "preferredMax": 20,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 13,
+        "max": 26,
+        "optMin": 16,
+        "optMax": 22
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "reef": 0.9,
+          "deep": 0.8,
+          "sand": 0.5,
+          "wall": 0.3,
+          "shallow": 0.2,
+          "weed": 0.2
+        },
+        "structureTags": [
+          "drop_off",
+          "channel_mouth",
+          "rock_hole"
+        ],
+        "note": "潮通しのよい根周り・砂礫混じりの深場。ショアでは潮通しが良い堤防先端・深い船道沿い"
+      },
+      "swimSpeed": {
+        "cruise": 0.6,
+        "burst": 3.5,
+        "unit": "m/s",
+        "refSizeCm": 50
+      },
+      "wariness": 0.7,
+      "baits": [
+        {
+          "id": "okiami",
+          "response": 0.9
+        },
+        {
+          "id": "ebi_live",
+          "response": 0.95
+        },
+        {
+          "id": "aoiso",
+          "response": 0.5
+        },
+        {
+          "id": "ika_strip",
+          "response": 0.4
+        }
+      ],
+      "lures": [
+        {
+          "id": "tairubber",
+          "response": 0.9,
+          "preferredAction": "straight_retrieve"
+        },
+        {
+          "id": "tenya",
+          "response": 0.8,
+          "preferredAction": "lift_fall"
+        },
+        {
+          "id": "metal_jig",
+          "response": 0.4,
+          "preferredAction": "lift_fall"
+        },
+        {
+          "id": "jighead_worm",
+          "response": 0.3,
+          "preferredAction": "bottom_bump"
+        },
+        {
+          "id": "minnow",
+          "response": 0.1,
+          "preferredAction": "slow_roll"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 1.0,
+          "day": 0.5,
+          "dusk": 0.9,
+          "night": 0.3
+        },
+        "windowsHour": [
+          [
+            4,
+            9
+          ],
+          [
+            16,
+            20
+          ]
+        ],
+        "monthlyActivity": [
+          0.3,
+          0.3,
+          0.6,
+          0.95,
+          1,
+          0.7,
+          0.4,
+          0.4,
+          0.6,
+          0.9,
+          0.85,
+          0.5
+        ],
+        "tide": {
+          "best": [
+            "incoming_mid",
+            "outgoing_mid"
+          ],
+          "note": "潮が動き、潮通しが効いた時のみ。潮止まりは口を使わない"
+        },
+        "seasonNote": "春の乗っ込み(3-5月)と秋が好期。夏は深場、冬は沖の深場。"
+      },
+      "currentResponse": {
+        "preferred": 0.6,
+        "tolerance": 0.25,
+        "behavior": "一定の流れがある潮通しを好む。ヨレ・潮目の際。流れが止まると食いが止まる。"
+      },
+      "lureResponse": {
+        "overall": 0.45,
+        "senses": {
+          "visual": 0.5,
+          "sound": 0.2,
+          "vibration": 0.4,
+          "scent": 0.7
+        },
+        "actionPreference": {
+          "straight_retrieve": 1.0,
+          "lift_fall": 0.8,
+          "drift": 0.8,
+          "fall": 0.6,
+          "stop_and_go": 0.5,
+          "bottom_bump": 0.5,
+          "jerk": 0.25,
+          "twitch": 0.2
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 0.56,
+          "typical": 3.49,
+          "max": 11.31
+        },
+        "burstKgf": {
+          "min": 0.84,
+          "typical": 5.24,
+          "max": 16.96
+        },
+        "coef": 2.2,
+        "exponent": 0.667,
+        "burstMult": 1.5,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "独特のググッという首振りと突っ込み。大型は走りが強い。口切れしやすい"
+      },
+      "rockDivingTendency": 0.4,
+      "hookOutChance": {
+        "base": 0.18,
+        "mouthSoftness": 0.65,
+        "mouthHoldRatio": 1.8,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 20,
+          "typical": 50,
+          "max": 90
+        },
+        "weightKg": {
+          "min": 0.128,
+          "typical": 2.0,
+          "max": 11.664
+        },
+        "lengthWeight": {
+          "a": 1.6e-05,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 1500,
+          "max": 4000
+        },
+        "jpyPerFish": {
+          "min": 1000,
+          "max": 15000
+        },
+        "note": "天然は高級魚。養殖は低価格。祝い魚として需要。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 700,
+      "fight": {
+        "staminaSec": 80,
+        "headShakeFreq": 0.6,
+        "runStyle": "head_shake_dives_and_rock_runs",
+        "toothCut": null,
+        "refSizeKg": 2.0
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 5.0,
+          "lateralLine": 3.0,
+          "smell": 5.0
+        },
+        "lightAffinity": 0.5,
+        "lightSensitivity": 0.5,
+        "noiseSensitivity": 0.6,
+        "lineVisibilitySensitivity": 0.85,
+        "schooling": false,
+        "schoolSize": [
+          1,
+          5
+        ],
+        "inspectSec": {
+          "min": 1.0,
+          "max": 4.0
+        },
+        "biteType": "mouth_and_hold",
+        "strikeCommitP": 0.5,
+        "fleeCooldownSec": {
+          "min": 20,
+          "max": 120
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "reef",
+          "deep"
+        ],
+        "power": 0.75,
+        "baseValue": 700,
+        "minTackle": 0.6,
+        "wariness": 0.7
+      },
+      "designNote": "ショアでは出会い自体が稀。ハリス(ラインの太さ/視認性)とタナ(深さ)が合わないと食わない。『コツコツ→ググッ』の前アタリを見極める。"
+    },
+    {
+      "id": "buri",
+      "nameJa": "ブリ",
+      "nameEn": "Japanese amberjack / Yellowtail (Buri)",
+      "rarity": "rare",
+      "methods": [
+        "lure",
+        "float"
+      ],
+      "growthNames": {
+        "<35": "ワカシ",
+        "35-60": "イナダ",
+        "60-80": "ワラサ",
+        "80+": "ブリ"
+      },
+      "depthRange": {
+        "min": 5,
+        "max": 40,
+        "preferredMin": 3,
+        "preferredMax": 25,
+        "unit": "m"
+      },
+      "tempRangeC": {
+        "min": 13,
+        "max": 24,
+        "optMin": 15,
+        "optMax": 22
+      },
+      "preferredSeabed": {
+        "zoneAffinity": {
+          "deep": 1.0,
+          "wall": 0.3,
+          "reef": 0.4,
+          "shallow": 0.1,
+          "sand": 0.1
+        },
+        "structureTags": [
+          "drop_off",
+          "channel_mouth"
+        ],
+        "note": "潮の効く沖〜外向き堤防先端の水柱を回遊。ベイト(イワシ/アジ)の群れを追う。海底より中層〜表層に付くことが多い"
+      },
+      "swimSpeed": {
+        "cruise": 1.2,
+        "burst": 7.0,
+        "unit": "m/s",
+        "refSizeCm": 80
+      },
+      "wariness": 0.5,
+      "baits": [
+        {
+          "id": "live_fish",
+          "response": 1.0
+        },
+        {
+          "id": "sakana_strip",
+          "response": 0.4
+        },
+        {
+          "id": "okiami",
+          "response": 0.15
+        }
+      ],
+      "lures": [
+        {
+          "id": "metal_jig",
+          "response": 1.0,
+          "preferredAction": "jerk"
+        },
+        {
+          "id": "minnow",
+          "response": 0.8,
+          "preferredAction": "straight_retrieve"
+        },
+        {
+          "id": "topwater",
+          "response": 0.65,
+          "preferredAction": "stop_and_go"
+        },
+        {
+          "id": "vibration",
+          "response": 0.4,
+          "preferredAction": "lift_fall"
+        },
+        {
+          "id": "wind_jig",
+          "response": 0.3,
+          "preferredAction": "dart"
+        }
+      ],
+      "activeHours": {
+        "timeOfDayWeights": {
+          "dawn": 1.0,
+          "day": 0.5,
+          "dusk": 0.9,
+          "night": 0.2
+        },
+        "windowsHour": [
+          [
+            4,
+            9
+          ],
+          [
+            15,
+            19
+          ]
+        ],
+        "monthlyActivity": [
+          0.7,
+          0.5,
+          0.3,
+          0.25,
+          0.2,
+          0.2,
+          0.2,
+          0.2,
+          0.3,
+          0.6,
+          0.9,
+          1
+        ],
+        "tide": {
+          "best": [
+            "incoming_early",
+            "outgoing_early",
+            "tide_change"
+          ],
+          "note": "潮が動く朝夕マズメ。ベイトボールが接岸した時だけチャンス。出会えない日が多い"
+        },
+        "seasonNote": "秋〜冬(10-2月)の寒ブリ。ワカシ/イナダは夏〜秋のショアジギで狙いやすい。"
+      },
+      "currentResponse": {
+        "preferred": 0.65,
+        "tolerance": 0.3,
+        "behavior": "速い流れ・潮目を好む。流れが効く先端で泳ぎ回る。"
+      },
+      "lureResponse": {
+        "overall": 0.8,
+        "senses": {
+          "visual": 0.9,
+          "sound": 0.3,
+          "vibration": 0.5,
+          "scent": 0.2
+        },
+        "actionPreference": {
+          "jerk": 1.0,
+          "straight_retrieve": 0.9,
+          "stop_and_go": 0.6,
+          "fall": 0.5,
+          "lift_fall": 0.6,
+          "slow_roll": 0.4,
+          "twitch": 0.4,
+          "dart": 0.4
+        }
+      },
+      "pullStrength": {
+        "sustainedKgf": {
+          "min": 1.11,
+          "typical": 7.92,
+          "max": 17.81
+        },
+        "burstKgf": {
+          "min": 1.78,
+          "typical": 12.67,
+          "max": 28.5
+        },
+        "coef": 2.4,
+        "exponent": 0.667,
+        "burstMult": 1.6,
+        "unitNote": "kgf (1 kgf = 9.80665 N)。sustained = c × W^0.667。ファイトの最大持続力。",
+        "note": "常時強い走り。糸を鳴らして走り、根・深場へ突っ込む。ドラグ調整が必須"
+      },
+      "rockDivingTendency": 0.3,
+      "hookOutChance": {
+        "base": 0.1,
+        "mouthSoftness": 0.2,
+        "mouthHoldRatio": 2.8,
+        "note": "base=1回のイベント(首振り/スラック)当たりの外れ基本確率。mouthHoldRatio=口が耐えられる張力/持続引き"
+      },
+      "sizeRange": {
+        "cm": {
+          "min": 30,
+          "typical": 80,
+          "max": 120
+        },
+        "weightKg": {
+          "min": 0.316,
+          "typical": 5.99,
+          "max": 20.218
+        },
+        "lengthWeight": {
+          "a": 1.17e-05,
+          "b": 3,
+          "formula": "W[kg]=a*L[cm]^3"
+        }
+      },
+      "price": {
+        "jpyPerKg": {
+          "min": 800,
+          "max": 3500
+        },
+        "jpyPerFish": {
+          "min": 1500,
+          "max": 30000
+        },
+        "note": "天然寒ブリは高級。ワカシ/イナダは安い。大きさで単価が大きく変わる。※現実の市場参考値のみ。ゲーム内通貨ではない(gameBaseValue参照)"
+      },
+      "gameBaseValue": 900,
+      "fight": {
+        "staminaSec": 150,
+        "headShakeFreq": 0.5,
+        "runStyle": "sustained_powerful_runs_and_deep_dives",
+        "toothCut": null,
+        "refSizeKg": 5.99
+      },
+      "behavior": {
+        "senseRangeM": {
+          "visual": 10.0,
+          "lateralLine": 4.0,
+          "smell": 2.0
+        },
+        "lightAffinity": 0.8,
+        "lightSensitivity": 0.3,
+        "noiseSensitivity": 0.2,
+        "lineVisibilitySensitivity": 0.25,
+        "schooling": true,
+        "schoolSize": [
+          3,
+          60
+        ],
+        "inspectSec": {
+          "min": 0.1,
+          "max": 0.8
+        },
+        "biteType": "chase",
+        "strikeCommitP": 0.9,
+        "fleeCooldownSec": {
+          "min": 5,
+          "max": 45
+        }
+      },
+      "legacy": {
+        "note": "src/data/fish.ts(Phase1 placeholder)との対応。id/zones/wariness/power/baseValueは互換のため保持",
+        "zones": [
+          "deep"
+        ],
+        "power": 0.95,
+        "baseValue": 900,
+        "minTackle": 0.8,
+        "wariness": 0.5
+      },
+      "designNote": "見切りが少なく、スイッチが入ればルアーに猛然とアタック。ただし食わせる難易度は低めでも、取り込みが最難関(ドラグ・根・体力)。"
+    }
+  ]
+}

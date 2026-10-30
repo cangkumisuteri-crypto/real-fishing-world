@@ -1,0 +1,11 @@
+REAL FISHING WORLD - design/textures
+concrete.webp, rock.webp, sand.webp, wood.webp
+
+Self-made: generated procedurally by gen_textures.py (Python / numpy / Pillow)
+with periodic (wrap-around) noise. No third-party images or assets are used.
+
+License: CC0 1.0 Universal (public domain dedication)
+https://creativecommons.org/publicdomain/zero/1.0/
+You may use, modify and redistribute these files for any purpose, without attribution.
+
+Regenerate: python3 gen_textures.py   (deterministic, fixed seeds)

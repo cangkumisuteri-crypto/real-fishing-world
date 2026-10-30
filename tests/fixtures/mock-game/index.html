@@ -1,0 +1,85 @@
+<!doctype html><html><head><meta charset="utf-8"><title>MOCK harness self-test</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#123;touch-action:none;user-select:none;-webkit-user-select:none;font-family:sans-serif}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.ui{position:fixed;color:#fff}
+#loading{inset:0;background:#012;display:flex;align-items:center;justify-content:center;z-index:5}
+#bar{width:50%;height:10px;background:#345}#fill{height:100%;width:0;background:#4cf}
+#play{inset:0;display:none;align-items:center;justify-content:center;z-index:4;background:#0008}
+button{font-size:18px;min-width:120px;min-height:48px}
+#joy{left:calc(env(safe-area-inset-left,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);width:112px;height:112px;border-radius:56px;background:#fff3;border:2px solid #fff6;box-sizing:border-box}
+#fs{right:calc(env(safe-area-inset-right,0px) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);width:72px;height:72px;min-width:0;border-radius:36px;display:block}
+#fs[data-disabled]{opacity:.4}
+#fui{right:calc(env(safe-area-inset-right,0px) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:none}
+#fui button{width:72px;height:72px;min-width:0}
+#hud{top:calc(env(safe-area-inset-top,0px) + 8px);left:calc(env(safe-area-inset-left,0px) + 16px);width:44px;height:44px;min-width:0}
+#cam{top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 16px);width:44px;height:44px;min-width:0}
+#chip{top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%);width:120px;height:32px;font-size:12px;text-align:center}
+</style></head><body>
+<canvas id="c"></canvas>
+<button class="ui" id="hud" data-hud="menu">☰</button><button class="ui" id="cam" data-hud="camera">📷</button><div class="ui" id="chip" data-hud="chip">デモ</div>
+<div class="ui" id="move-ui" data-testid="move-ui"><div class="ui" id="joy" data-testid="joystick" data-hud="joystick"></div></div>
+<button class="ui" id="fs" data-testid="fishing-start" data-hud="fish-start" aria-label="釣り開始">🎣</button>
+<div class="ui" id="fui" data-testid="fishing-ui"><button data-testid="fishing-stop" data-hud="main-action" aria-label="釣りをやめる">✕</button></div>
+<div class="ui" id="loading" data-testid="loading"><div id="bar" data-testid="loading-progress" role="progressbar" aria-valuenow="0"><div id="fill"></div></div></div>
+<div class="ui" id="play"><button data-testid="play-button" id="pb">プレイ</button></div>
+<script>
+const bug = new URLSearchParams(location.search).get('bug') || '';
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+const S = { phase: 'loading', loading: { progress: 0 }, player: { x: -20, y: 1.6, z: 15.5 }, camera: { yaw: 0, pitch: 0, aspect: 1 }, mode: 'move' };
+try { const sv = JSON.parse(localStorage.getItem('rfw.save')); if (sv && sv.version === 1 && isFinite(sv.x) && isFinite(sv.z)) { S.player.x = sv.x; S.player.z = sv.z; S.camera.yaw = sv.yaw || 0; } } catch (e) {}
+const isWater = (x, z) => !(x > -40 && x < 23 && z >= 8 && z < 42) && !(x>=23&&x<48&&z>=12&&z<42);
+function save() { try { localStorage.setItem('rfw.save', JSON.stringify({ version: 1, x: S.player.x, z: S.player.z, yaw: S.camera.yaw })); } catch (e) {} }
+function resize() { const d = Math.min(devicePixelRatio, 2); c.width = innerWidth * d; c.height = innerHeight * d; S.camera.aspect = innerWidth / innerHeight; }
+addEventListener('resize', resize); resize();
+window.__rfw = { version: 1, getState: () => JSON.parse(JSON.stringify(S)), isWater, saveNow: save,
+  teleport(x, z, yaw) { S.player.x = x; S.player.z = z; if (yaw != null) S.camera.yaw = yaw; } };
+// loading
+let t0 = performance.now();
+(function load() { const p = Math.min(1, (performance.now() - t0) / 1200); S.loading.progress = p; document.getElementById('fill').style.width = p * 100 + '%'; document.getElementById('bar').setAttribute('aria-valuenow', p);
+  if (p < 1) return setTimeout(load, 50); S.phase = 'title'; document.getElementById('loading').style.display = 'none'; document.getElementById('play').style.display = 'flex'; })();
+document.getElementById('pb').addEventListener('click', () => { if (S.phase !== 'title') return; S.phase = 'playing'; document.getElementById('play').style.display = 'none'; });
+// input (Pointer Events only)
+const joy = document.getElementById('joy'); let stick = { x: 0, y: 0 }, stickId = null, jc = null, camId = null, last = null;
+addEventListener('pointerdown', (e) => {
+  if (S.phase !== 'playing' || S.mode !== 'move') return;
+  if (e.target.closest('button')) return;
+  if (e.clientX < innerWidth * 0.4 && stickId === null) { stickId = e.pointerId; jc = { x: e.clientX, y: e.clientY }; }
+  else if (camId === null) { camId = e.pointerId; last = { x: e.clientX, y: e.clientY }; }
+});
+addEventListener('pointermove', (e) => {
+  if (e.pointerId === stickId) { const dx = (e.clientX - jc.x) / 50, dy = (e.clientY - jc.y) / 50; const m = Math.hypot(dx, dy); const k = m > 1 ? 1 / m : 1; stick = { x: dx * k, y: -dy * k }; }
+  if (e.pointerId === camId) { S.camera.yaw += (e.clientX - last.x) * 0.005; S.camera.pitch = Math.max(-1.4, Math.min(1.4, S.camera.pitch + (e.clientY - last.y) * 0.004)); last = { x: e.clientX, y: e.clientY }; }
+});
+const up = (e) => { if (e.pointerId === stickId) { stickId = null; stick = { x: 0, y: 0 }; } if (e.pointerId === camId) camId = null; };
+addEventListener('pointerup', up); addEventListener('pointercancel', up);
+// fishing
+const fs = document.getElementById('fs'), fui = document.getElementById('fui'), mv = document.getElementById('move-ui');
+fs.addEventListener('click', () => { if (fs.hasAttribute('data-disabled')) return; S.mode = 'fishing'; stick = { x: 0, y: 0 }; stickId = null; });
+fui.querySelector('button').addEventListener('click', () => { S.mode = 'move'; });
+const blocked = (x, z) => (bug === 'wall' ? false : (x > 0 && x < 10 && z > 19 && z < 27) || (x > -30 && x < -22 && z > 19 && z < 25)) || (x > -34.5 && x < -18.5 && z < 10.6);
+let tp = performance.now();
+function frame(t) {
+  const dt = Math.min(0.05, (t - tp) / 1000); tp = t;
+  if (S.phase === 'playing' && S.mode === 'move') {
+    const y = S.camera.yaw, fx = Math.sin(y), fz = -Math.cos(y), rx = Math.cos(y), rz = Math.sin(y);
+    const vx = (fx * stick.y + rx * stick.x) * 4 * dt, vz = (fz * stick.y + rz * stick.x) * 4 * dt;
+    for (const [dx, dz] of [[vx, 0], [0, vz]]) { const nx = S.player.x + dx, nz = S.player.z + dz;
+      if (bug === 'sea' ? true : !isWater(nx, nz) && !blocked(nx, nz) && nz >= 8.4 && nz < 41) { S.player.x = nx; S.player.z = nz; } }
+  }
+  const near = S.player.z - 8 < 2.6 && S.player.x > -40 && S.player.x < 23 && !isWater(S.player.x, S.player.z);
+  const show = S.phase === 'playing' && S.mode === 'move' && near;
+  fs.style.display = S.phase === 'playing' && S.mode === 'move' ? 'block' : 'none'; if (show) fs.removeAttribute('data-disabled'); else fs.setAttribute('data-disabled',''); fui.style.display = S.mode === 'fishing' ? 'block' : 'none'; mv.style.display = S.phase === 'playing' && S.mode === 'move' ? 'block' : 'none';
+  // draw: pseudo-3D stripes depending on pos/yaw
+  const W = c.width, H = c.height; ctx.fillStyle = '#7ab8e8'; ctx.fillRect(0, 0, W, H / 2);
+  ctx.fillStyle = isWater(S.player.x, S.player.z) ? '#1d4e89' : '#6b6b6b'; ctx.fillRect(0, H / 2, W, H / 2);
+  for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2 - S.camera.yaw; const sx = W / 2 + Math.tan(Math.atan2(Math.sin(a), Math.cos(a))) * W * 0.5; if (Math.cos(a) <= 0) continue;
+    ctx.fillStyle = `hsl(${i * 15},60%,${40 + ((S.player.x + S.player.z) % 10)}%)`; const h = (60 + 40 * Math.sin(i + t / 700)) * (H / 600); ctx.fillRect(sx, H / 2 - h - S.camera.pitch * 120, W * 0.04, h + 30); }
+  ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText(Math.round(S.player.x * 10) / 10 + ',' + Math.round(S.player.z * 10) / 10, W * 0.4, H * 0.9);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setInterval(() => { if (S.phase === 'playing') save(); }, 1000);
+addEventListener('pagehide', save);
+</script></body></html>
