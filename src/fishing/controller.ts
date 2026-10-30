@@ -7,7 +7,9 @@ import { FishingView } from './view';
 import { FishUI, type FightView } from '../ui/fishui';
 import { Sfx } from '../systems/audio';
 import { Haptics } from '../systems/haptics';
-import { recordCatch, releaseCatch, type SaveData, type CatchLogEntry } from '../systems/save';
+import { recordCatch, releaseCatch, type SaveData, type CatchLogEntry, type Settings } from '../systems/save';
+import { assistInputs } from './assist';
+import { Tutorial } from '../ui/tutorial';
 import { RIG_PRESETS } from './rigdata';
 import { SPECIES_BY_ID } from '../data/species';
 import type { Hud } from '../ui/hud';
@@ -22,6 +24,7 @@ const $ = (id: string) => document.getElementById(id)!;
 export interface CtlDeps {
   scene: THREE.Scene; rig: CameraRig; input: Input; player: Player; hud: Hud; g: Grid;
   data: SaveData; saveNow: () => boolean; hours: () => number; seed?: number; qa: boolean;
+  settings: () => Settings; patch: (p: Partial<Settings>) => void;
 }
 
 export class FishingController {
@@ -38,12 +41,22 @@ export class FishingController {
   private envT = 0; private theta = 50; private lastPhase: Phase = 'ready'; private saveT = 0;
   private stage = $('stage');
   private resultCatch = false;
+  /** おまかせ／ファイトアシスト（設定のコピー） */
+  auto = false; assist = true;
+  /** QA用：ドラグを手動指定している間はアシストのドラグ制御を止める */
+  qaManualDrag = false;
+  /** 前回の強さで1タップキャスト。QAは既定オフ（従来の2タップ試験と互換）で、hooks から切り替える */
+  quickCastOn: boolean;
+  tut: Tutorial;
+  private autoT = 0; private autoBiteT = 0; private autoMsgT = 0; private resultT = 0; private fightT = 0;
 
   constructor(private d: CtlDeps) {
     this.session = new FishingSession(gridWorld(d.g), { seed: d.seed, hour: d.hours() });
     this.view = new FishingView(d.scene, d.rig.camera, d.rig.rod);
     this.sfx.enabled = d.data.settings.sound; this.hap.enabled = d.data.settings.vibration;
+    this.quickCastOn = !d.qa;
     this.bind();
+    this.tut = new Tutorial({ get: () => d.settings().tutStep, set: (n) => d.patch({ tutStep: n }), toast: (m) => d.hud.toast(m, 3000) });
     d.hud.renderers.rig = (body) => this.ui.renderRig(body, {
       rig: () => this.session.rig, phase: () => this.session.phase, seabed: () => this.knownSeabed, seabedKnown: () => this.seabedKnown,
       setRig: (p) => { this.session.setRig(p); this.persistRig(); },
@@ -52,7 +65,48 @@ export class FishingController {
     });
     d.hud.renderers.zukan = (body) => this.ui.renderZukan(body, d.data);
   }
-  applySettings(s: { sound: boolean; vibration: boolean }) { this.sfx.enabled = s.sound; this.hap.enabled = s.vibration; }
+  applySettings(s: Settings) {
+    this.sfx.enabled = s.sound; this.hap.enabled = s.vibration;
+    const changed = this.auto !== s.auto || this.assist !== s.assist;
+    const wasAuto = this.auto;
+    this.auto = s.auto; this.assist = s.assist;
+    this.ui.autoOn = s.auto; this.ui.assistOn = s.assist; this.ui.quickCast = this.quickCastOn && s.castPower > 0;
+    document.body.dataset.hand = s.oneHand === 'off' ? '' : s.oneHand;
+    if (changed) {
+      this.ui.invalidate(); this.autoT = 0; this.autoBiteT = 0;
+      if (this.active && s.auto && !wasAuto && this.session.phase === 'aim') this.session.cancelAim();
+      if (s.auto) this.setReel(false);
+    }
+  }
+  /** 一度だけ出す短いヒント（チュートリアル中は出さない） */
+  private once(id: string, msg: string, ms = 3200) {
+    const seen = this.d.settings().seenHints;
+    if (seen.includes(id) || this.tut.active) return;
+    this.d.patch({ seenHints: [...seen, id] }); this.d.hud.toast(msg, ms);
+  }
+  /** 回収ボタン：ウキが水中でファイト前ならすぐ巻き戻す（約1秒） */
+  retrieve(): boolean {
+    if (!this.active) return false;
+    const ok = this.session.quickRetrieve();
+    if (ok) { this.setReel(false); this.tut.used(); }
+    else if (this.session.phase === 'fight') this.d.hud.toast('ファイト中は回収できません', 1400);
+    return ok;
+  }
+  toggleAuto(on?: boolean) {
+    const v = on ?? !this.auto;
+    this.d.patch({ auto: v, modeChosen: true }); this.sfx.ui();
+    this.d.hud.toast(v ? '🤖 おまかせ ON（投げる・合わせ・ファイトを自動）' : 'おまかせ OFF（手動）', 2400);
+    this.tut.used(); this.d.saveNow();
+  }
+  /** メイン操作：前回の強さを覚えていれば1タップで投げる */
+  mainTap() {
+    const s = this.session;
+    if (this.auto) { if (performance.now() - this.autoMsgT > 4000) { this.autoMsgT = performance.now(); this.d.hud.toast('おまかせ中です（🤖で手動に戻せます）', 1800); } return; }
+    if (s.phase === 'ready' && this.quickCastOn && this.d.settings().castPower > 0) {
+      s.startAim(); this.sfx.ui(); s.cast(this.d.settings().castPower, this.d.player.yaw);
+      if ((s.phase as Phase) === 'aim') this.d.hud.toast('その向きには投げられません（向きを変えよう）', 1600);
+    } else this.act();
+  }
   private persistRig() { this.d.data.lastRig = { ...this.session.rig }; }
 
   /* ---------- 開始・終了 ---------- */
@@ -66,7 +120,10 @@ export class FishingController {
     this.lastPhase = 'ready'; this.envT = 0; this.saveT = 0;
     this.ui.setPhase('ready', s); this.ui.hideResult();
     this.ui.readyHtml = $('infoCard').innerHTML;
-    this.d.hud.toast('キャスト→もう一度押して投げる（上フリックでも可）', 3200);
+    this.ui.quickCast = this.quickCastOn && this.d.settings().castPower > 0;
+    this.ui.invalidate();
+    if (this.auto) this.d.hud.toast('🤖 おまかせで釣ります', 2000);
+    else if (!this.tut.active) this.once('enter', this.ui.quickCast ? '「キャスト」1タップで前回と同じ強さで投げます（🎯狙うで調整）' : '「キャスト」→もう一度押して投げる', 3600);
   }
   /** 離れてよいか（ファイト中・飛行中は不可） */
   requestExit(): boolean {
@@ -87,25 +144,29 @@ export class FishingController {
   private bind() {
     const e = this.ui.e, inp = this.d.input;
     const down = (el: HTMLElement, f: (ev: PointerEvent) => void) => el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); this.sfx.unlock(); f(ev); });
-    down(e.action, (ev) => { if (this.session.phase === 'fight') { this.setRaise(true); (ev.target as HTMLElement).setPointerCapture?.(ev.pointerId); } else this.act(); });
+    down(e.action, (ev) => { if (this.session.phase === 'fight') { if (!this.auto) { this.setRaise(true); (ev.target as HTMLElement).setPointerCapture?.(ev.pointerId); } } else this.mainTap(); });
+    down(e.retrieve, () => { this.retrieve(); });
+    down(e.aim, () => { if (this.active && this.session.phase === 'ready' && !this.auto) { this.session.startAim(); this.sfx.ui(); } });
+    down(e.auto, () => this.toggleAuto());
     for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) { e.action.addEventListener(t, () => this.setRaise(false)); e.reel.addEventListener(t, () => this.setReel(false)); }
     down(e.reel, (ev) => { this.setReel(true); (ev.target as HTMLElement).setPointerCapture?.(ev.pointerId); });
     down(e.dragPlus, () => this.addDrag(0.1)); down(e.dragMinus, () => this.addDrag(-0.1));
-    e.bait.addEventListener('click', () => this.openRig());
     e.gear.addEventListener('click', () => this.openRig());
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { this.setReel(false); this.setRaise(false); } });
     addEventListener('blur', () => { this.setReel(false); this.setRaise(false); });
     // PC キー：Space=メイン / R=巻く / ↑↓=ウキ下
     addEventListener('keydown', (ev) => {
       if (!this.active || this.d.hud.panelOpen || ev.repeat) return;
-      if (ev.code === 'Space') { ev.preventDefault(); this.sfx.unlock(); if (this.session.phase === 'fight') this.setRaise(true); else this.act(); }
+      if (ev.code === 'Space') { ev.preventDefault(); this.sfx.unlock(); if (this.session.phase === 'fight') this.setRaise(true); else this.mainTap(); }
       else if (ev.code === 'KeyR') this.setReel(true);
+      else if (ev.code === 'KeyQ') this.retrieve();
+      else if (ev.code === 'KeyT') this.toggleAuto();
       else if (ev.code === 'BracketRight') this.session.adjustDepth(0.5);
       else if (ev.code === 'BracketLeft') this.session.adjustDepth(-0.5);
     });
     addEventListener('keyup', (ev) => { if (ev.code === 'Space') this.setRaise(false); if (ev.code === 'KeyR') this.setReel(false); });
     inp.onFlick = (power) => {
-      if (!this.active) return; this.sfx.unlock();
+      if (!this.active || this.auto) return; this.sfx.unlock();
       if (this.session.phase === 'ready') this.session.startAim();
       if (this.session.phase === 'aim') this.session.cast(power, this.d.player.yaw);
     };
@@ -139,6 +200,7 @@ export class FishingController {
     if (s.phase === 'ready' || s.phase === 'aim') s.yaw = p.yaw;
     // 環境（デモ）を時刻に追従
     this.envT += dt; if (this.envT > 10) { this.envT = 0; s.setEnv(this.d.hours()); }
+    if (this.auto) this.autoStep(dt);
     // リール
     if (s.phase === 'wait' || s.phase === 'bite') s.setRetrieve(this.reelHeld);
     if (s.phase === 'fight') {
@@ -151,7 +213,16 @@ export class FishingController {
       let steer = st.fightHeld ? clamp(st.fdx / 70, -1, 1) : 0;
       if (this.qaPose.theta != null) th = this.qaPose.theta;
       if (this.qaPose.steer != null) steer = this.qaPose.steer;
-      s.inp.theta = th; s.inp.steer = steer; s.inp.reel = this.reelHeld ? 1 : 0;
+      let reel = this.reelHeld;
+      if (this.auto || this.assist) {
+        const o = assistInputs(s.fight!, this.auto || this.reelHeld, s.inp.drag, dt);
+        reel = !!o.reel;
+        if (this.qaPose.theta == null) th = o.theta;
+        if (this.qaPose.steer == null) steer = o.steer;
+        if (!this.qaManualDrag) s.inp.drag = o.drag;
+      }
+      s.inp.theta = th; s.inp.steer = steer; s.inp.reel = reel ? 1 : 0;
+      if (this.assist || this.auto) this.fightT += dt;
       // 視点を魚の方へゆっくり向ける
       const fw = s.fishWorld();
       if (fw && this.site) {
@@ -165,13 +236,14 @@ export class FishingController {
     } else { inp.fightMode = false; this.raised = false; this.ui.setRaiseHold(false); }
     inp.flickOn = (s.phase === 'ready' || s.phase === 'aim') && !this.d.hud.panelOpen;
     s.update(dt);
-    if (this.reelHeld && (s.phase === 'fight' || ((s.phase === 'wait' || s.phase === 'bite') && s.floatInWater))) this.sfx.reel(1);
+    if ((this.reelHeld || (this.auto && s.phase === 'fight' && s.inp.reel > 0)) && (s.phase === 'fight' || ((s.phase === 'wait' || s.phase === 'bite') && s.floatInWater))) this.sfx.reel(1);
     for (const e of s.popEvents()) { this.view.onEvent(s, e); this.handle(e); }
     if (s.floatInWater && s.phase !== 'flight') { this.knownSeabed = s.seabed; this.seabedKnown = true; }
     if (s.phase !== this.lastPhase) {
       if (this.lastPhase === 'fight') { this.setReel(false); this.raised = false; }
       if (s.phase === 'fight') { this.theta = 50; this.setReel(false); }
-      this.lastPhase = s.phase;
+      this.lastPhase = s.phase; this.autoT = 0; this.autoBiteT = 0; this.resultT = 0; this.fightT = 0;
+      if (s.phase !== 'fight') this.qaManualDrag = false;
     }
     this.hap.decay(dt);
     this.saveT += dt; if (this.saveT > 30) { this.saveT = 0; if (s.phase !== 'fight') this.d.saveNow(); }
@@ -184,6 +256,7 @@ export class FishingController {
     else if (this.active) { const ph = this.session.phase; this.d.input.flickOn = (ph === 'ready' || ph === 'aim') && !this.d.hud.panelOpen; }
     const s = this.session;
     this.view.update(s, t, dt, dayLight, this.active);
+    this.tut.update({ mode: this.active ? 'fish' : 'move', phase: s.phase, canFish: document.getElementById('btnFish')?.dataset.state === 'ready', waitSec: s.waitT, auto: this.auto, assist: this.assist, dt });
     if (!this.active) return;
     this.ui.update(s, this.fightView(), { baitPct: s.baitLife * 100, castDist: s.castDist });
     this.setShake(this.hap.shake);
@@ -194,7 +267,7 @@ export class FishingController {
   }
   fightView(): FightView | null {
     const f = this.session.fight; if (!f || this.session.phase !== 'fight') return null;
-    return { known: f.dist < 3.5, name: f.sp.nameJa, sizeCm: f.sizeCm, dist: f.dist, bearing: f.bearing, mode: f.mode, tension: f.tension, slipping: f.slipping, drag: this.session.inp.drag, theta: this.session.inp.theta, raised: this.raised };
+    return { known: f.dist < 3.5, name: f.sp.nameJa, sizeCm: f.sizeCm, dist: f.dist, bearing: f.bearing, mode: f.mode, tension: f.tension, slipping: f.slipping, drag: this.session.inp.drag, theta: this.session.inp.theta, raised: this.raised, assist: this.assist, auto: this.auto };
   }
 
   /* ---------- イベント → 音・振動・UI・セーブ ---------- */
@@ -204,17 +277,22 @@ export class FishingController {
     if (this.log.length > 80) this.log.shift();
     if (e.kind === 'bite') this.biteEvents++;
     switch (e.kind) {
-      case 'cast': sfx.whoosh(); hap.fire('cast'); d.stats.casts++; this.persistRig(); break;
+      case 'cast': sfx.whoosh(); hap.fire('cast'); d.stats.casts++; this.persistRig();
+        if (!this.auto && s.lastPower > 0) this.d.patch({ castPower: Math.round(s.lastPower * 100) / 100 });
+        break;
+      case 'quick_retrieve': sfx.whoosh(); hap.fire('cast'); break;
       case 'splash': sfx.splash(); hap.fire('splash'); break;
-      case 'nibble': sfx.tick(); hap.fire('pre'); break;
-      case 'pre': sfx.tick(); hap.fire('pre'); break;
-      case 'bite': sfx.bite(); hap.fire('bite'); d.stats.bites++; break;
+      case 'nibble': sfx.tick(); hap.fire('pre'); this.once('nibble', '小さな動きはエサ取り。まだ合わせない'); break;
+      case 'pre': sfx.tick(); hap.fire('pre'); this.ui.cue('pre', 'ピクッ'); break;
+      case 'bite': sfx.bite(); hap.fire('bite'); d.stats.bites++; this.ui.cue('bite', this.auto ? 'アタリ！' : 'アタリ！ 合わせ！'); break;
       case 'hookset':
-        if (e.result === 'hooked') { sfx.hookset(); hap.fire('hookset'); } else { sfx.miss(); }
+        if (e.result === 'hooked') { sfx.hookset(); hap.fire('hookset'); this.ui.cue('hit', 'ヒット！'); }
+        else { sfx.miss(); if (e.result !== 'empty') this.ui.cue('miss', e.result === 'early' ? '早い！' : e.result === 'late' ? '遅い…' : 'ハズレ'); }
         break;
       case 'fish_hit': break;
       case 'fight_event': {
         const k = e.ev.kind;
+        if (k === 'run' || k === 'side_run' || k === 'dive') this.once('run', this.assist || this.auto ? '走る間は魚の力。少し待とう' : '走る間は巻かず、ドラグと竿で耐えよう');
         if (k === 'run' || k === 'side_run' || k === 'dive' || k === 'last_run' || k === 'headshake') hap.fire('run');
         else if (k === 'soft_warn' || k === 'tear_warn') { sfx.warn(); hap.fire('warn'); }
         else if (k === 'snap') { sfx.snap(); hap.fire('snap'); }
@@ -224,10 +302,10 @@ export class FishingController {
       }
       case 'end': this.onEnd(e); break;
       case 'bait_gone': hud.toast('エサを取られた！ 自動で付け直しました', 2200); break;
-      case 'snag': hud.toast(e.state === 'hooked' ? '根掛かり！ 「巻く」で外れることがある' : e.state === 'freed' ? '根掛かりが外れた' : '仕掛けをロスト…', 2200); break;
+      case 'snag': hud.toast(e.state === 'hooked' ? '根掛かり！ 「巻く」で外れる／「回収」で戻す' : e.state === 'freed' ? '根掛かりが外れた' : '仕掛けをロスト…', 2200); break;
       case 'toast': hud.toast(e.msg, 2200); break;
       case 'hint': hud.toast('💡 ' + e.msg, 6000); break;
-      case 'reel_in_done': hud.toast('仕掛けを回収しました', 1400); this.setReel(false); break;
+      case 'reel_in_done': if (!this.auto) hud.toast('回収しました', 1000); this.setReel(false); break;
       case 'spook': break;
     }
     void s;
@@ -242,7 +320,7 @@ export class FishingController {
       const rc = recordCatch(d, { speciesId: r.speciesId, sizeCm: r.sizeCm, weightKg: r.weightKg, quality: r.quality, hour: r.hour, at: r.at }, spotId);
       this.lastEntry = rc.entry; this.resultCatch = true;
       this.sfx.landed(rc.first); this.hap.fire('landed');
-      this.view.showCatch(r.speciesId, r.sizeCm);
+      this.view.showCatch(r.speciesId, r.sizeCm); this.resultT = 0;
       const zk = d.zukan[r.speciesId];
       this.ui.showResult(`<h2>釣れた！${rc.first ? '<span class="badge">図鑑に新登録</span>' : ''}</h2>
         <div class="big">${sp.nameJa}</div>
@@ -260,6 +338,39 @@ export class FishingController {
       $('rcOk').addEventListener('click', () => this.closeResult(false));
     }
     this.d.saveNow();
+  }
+  /** おまかせ：投げる・合わせる・回収・結果を閉じる、までを自動で行う */
+  private autoStep(dt: number) {
+    const s = this.session;
+    if (this.d.hud.panelOpen) return;
+    switch (s.phase) {
+      case 'ready': {
+        this.autoT += dt;
+        if (this.autoT < 1.0) break;
+        const keepYaw = s.yaw; if (this.site) s.yaw = this.site.yaw;
+        const pl = s.autoCastPlan(); s.yaw = keepYaw;
+        this.autoT = 0;
+        if (!pl) { this.autoT = -2.5; this.once('noplan', '投げられる場所を探しています…', 1800); break; }
+        if (s.rig.depthM > pl.depth - 0.5) s.setRig({ depthM: Math.max(0.5, Math.round((pl.depth - 0.7) * 2) / 2) });
+        this.d.player.yaw = pl.yaw; s.yaw = pl.yaw;
+        s.startAim(); s.cast(pl.power, pl.yaw);
+        if ((s.phase as Phase) === 'aim') s.cancelAim();
+        break;
+      }
+      case 'bite':
+        this.autoBiteT += dt;
+        if (this.autoBiteT > 0.35) { this.autoBiteT = -9; s.hookset(); }
+        break;
+      case 'wait':
+        this.autoT += dt;
+        if (!s.quick && (s.baitLife < 0.03 || s.snag || s.waitT > 75)) { this.retrieve(); }
+        break;
+      case 'result':
+        this.resultT += dt;
+        if (this.resultT > 3.4 && !this.d.hud.panelOpen) this.closeResult(false);
+        break;
+      default: break;
+    }
   }
   closeResult(release: boolean) {
     if (release && this.lastEntry) { releaseCatch(this.d.data, this.lastEntry.id); this.sfx.splash(0.6); }

@@ -86,3 +86,9 @@ Log: tests/out/run.b2-cr.log. Preview servers on :4180/:4181 were stopped.
 - BUG-1 (320px chip truncated mid-character): FIXED – narrow (<=340px) uses abbreviated chip text + wrapping/shrink CSS. Verified by qa.mjs `BUG-1` checks (320x568 / 568x320) and e2e QA-08/12/14 at webkit-iphone-se (31 passed, 1 skipped).
 - BUG-2 (any unhandled rejection showed fatal overlay): FIXED – overlay only for errors before boot completes; later rejections are logged (`__rfwWarnings`) + small toast. Verified by qa.mjs `BUG-2`, e2e X10.
 - BUG-3 (tutorial toast overlapped 走る at 320x568): FIXED – move-mode toast positioned above the button row. Verified by qa.mjs `BUG-3` (rect intersection with run/joystick/other buttons = none).
+
+---
+## Phase 2.1 (2026-10-30 JST)
+New checks live in tests/phase21.mjs (called from tests/qa.mjs after fishFlow): 回収 button (shown only in water & no fish, >=56px, ~1 s, rig kept, hidden when hooked, hold-reel intact), quick recast, bite/hit cues, assist fights (aji/saba landed by holding 巻く only), AUTO full cycle (auto cast/strike/land/log/zukan, result auto-close, toggle off), layout/overlap/>=44px at 320x568, 375x667, 390x844, 430x932, 568x320, 844x390 x one-hand off/right/left x 7 phases, legacy/corrupted save migration, first-run mode choice + 4-step tutorial (<=26 chars/line, skip always >=44px, persists, replay from menu, おまかせ path), JS error count 0.
+Assist sim (tests/sim/assist_sim.ts, T0 tackle): assist >= manual bot for small/mid fish (aji20 83% vs 80%, saba30 65% vs 59%, kasago22 97% vs 93%, mebaru20 89% vs 75%, madai40 43% vs 0%); big fish (seabass60, buri60) remain hard on starting tackle for both (design: tackle progression).
+Fix found by testing: the tutorial hid itself (and its Skip button) if step 2 ended in `ready` without passing `result` (e.g. fish lost) -> now shows the cast prompt / advances.

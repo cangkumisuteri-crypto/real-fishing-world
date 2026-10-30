@@ -31,6 +31,11 @@ async function boot() {
   const saved = loadSave(ios);
   let settings: Settings = { ...saved.data.settings };
   if (qs.get('q') === 'low' || qs.get('q') === 'mid' || qs.get('q') === 'high') settings.quality = qs.get('q') as QualityId;
+  if (QA && !qs.has('assist')) settings = { ...settings, assist: false }; // QA既定は手動ファイト（従来の試験と互換）
+  // 初回の「自分で/おまかせ」選択とチュートリアルの扱い（既存プレイヤー・QA には出さない）
+  const forceTut = qs.get('tut') === '1';
+  if (!settings.modeChosen && !forceTut && (QA || saved.data.stats.casts > 0)) settings = { ...settings, modeChosen: true, tutStep: 4 };
+  if (!settings.modeChosen) settings = { ...settings, tutStep: 4 };
   let saveStatus = saved.status === 'unavailable' ? '保存不可の環境' : saved.status === 'reset' ? '壊れたデータを初期化' : saved.status === 'loaded' ? '前回のデータを読込済' : '新規';
   setMsg('描画エンジンを準備中…', 0.05);
   await nextFrame();
@@ -158,6 +163,7 @@ async function boot() {
       if (s.alwaysRun !== prevAlways) { prevAlways = s.alwaysRun; input.setRunLock(s.alwaysRun); hud.setRun(s.alwaysRun); hud.toast(s.alwaysRun ? '常に走る: ON' : '常に走る: OFF'); }
       saveNow();
     },
+    onTutorial: () => { patchSettings({ auto: false }); fishing.tut.restart(); hud.toast('遊び方を開始（約30秒・スキップ可）', 2400); },
     onSaveNow: () => saveNow(),
     onClearSave: () => { const ok = clearSave(); const d0 = defaultSave(ios); data.zukan = d0.zukan; data.catchLog = d0.catchLog; data.stats = d0.stats; data.lastRig = null; return ok; },
     onResetPos: () => { player.place(SPAWN.x, SPAWN.z, SPAWN.yaw); hud.toast('スポーン地点に戻りました'); saveNow(); },
@@ -165,10 +171,11 @@ async function boot() {
     info: () => ({ fps: fps.fps, quality: settings.quality, timeLabel: clockLabel(), timeDemo: tOverride != null, saveStatus, renderer: rendererName, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, dpr: renderer.getPixelRatio() }),
     playerPos: () => ({ x: player.x, z: player.z, yaw: player.yaw }),
   }, () => settings, minimap);
+  const patchSettings = (p: Partial<Settings>) => { settings = { ...settings, ...p }; fishing.applySettings(settings); };
   const seedQ = qs.get('seed');
   const fishing = new FishingController({
     scene, rig, input, player, hud, g, data, saveNow: () => saveNow(), hours: () => (tOverride != null ? tOverride : skyState.hours || localHours(null)),
-    seed: seedQ != null ? parseInt(seedQ, 10) >>> 0 : undefined, qa: QA,
+    seed: seedQ != null ? parseInt(seedQ, 10) >>> 0 : undefined, qa: QA, settings: () => settings, patch: patchSettings,
   });
   fishing.applySettings(settings);
   hud.onPanel = (open) => { input.enabled = playing && !open; if (open) input.reset(); else saveNow(); };
@@ -284,6 +291,19 @@ async function boot() {
     player.yaw = startPos.yaw; player.pitch = 0;
     saveNow();
     hud.toast(touch ? '左をドラッグで移動／右をスワイプで視点' : 'WASDで移動・ドラッグで視点・Fで釣り開始', 4200);
+    if (!settings.modeChosen) {
+      input.enabled = false; input.reset();
+      const sc = $('startChoice'); sc.classList.add('open');
+      const pick = (auto: boolean) => {
+        sc.classList.remove('open'); input.enabled = playing && !hud.panelOpen;
+        patchSettings({ modeChosen: true, auto });
+        if (auto) { patchSettings({ tutStep: 4 }); hud.toast('🤖 おまかせで釣ります（水辺で「釣り開始」）', 3200); }
+        else { patchSettings({ tutStep: 0 }); fishing.tut.restart(); }
+        saveNow();
+      };
+      $('chManual').addEventListener('click', () => pick(false), { once: true });
+      $('chAuto').addEventListener('click', () => pick(true), { once: true });
+    }
   };
   play.addEventListener('click', start);
 }

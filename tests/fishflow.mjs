@@ -63,7 +63,7 @@ export async function fishFlow(ctx) {
   await toFishing(page, touch, until);
   await F(page, () => window.__rfw.fishing.freeze(true));
   let s = await fst(page);
-  rec(suite, 'P2 ready: ボタンが「キャスト」/ 情報カード表示', s.phase === 'ready' && /キャスト/.test(s.ui.action || '') && /釣り場/.test(s.ui.card || ''), s.ui.action);
+  rec(suite, 'P2 ready: ボタンが「キャスト」/ 情報カード表示', s.phase === 'ready' && /キャスト/.test(s.ui.action || '') && /水深/.test(s.ui.card || ''), s.ui.action);
   // ---- cast ----
   const aim = await castToWait(page, touch);
   rec(suite, 'P2 cast: 1回目で狙い(aim)・パワーゲージ表示', aim.phase === 'aim' && aim.ui.power === true, `phase=${aim.phase} power=${aim.aimPower?.toFixed(2)}`);

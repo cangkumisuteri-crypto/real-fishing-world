@@ -14,6 +14,13 @@ export interface Settings {
   alwaysRun: boolean; // 常に走る（起動時に走りロックをONにする）
   sound: boolean; // 効果音
   vibration: boolean; // 振動・画面の揺れ
+  auto: boolean; // おまかせ釣り（自動キャスト・自動合わせ・自動ファイト）
+  assist: boolean; // ファイトアシスト（ドラグ・竿角度を自動。OFF=自分で操作）
+  oneHand: 'off' | 'right' | 'left'; // 片手レイアウト（釣りUIを片側の親指に寄せる）
+  castPower: number; // 前回のキャスト強さ（0=未投入）。クイック再投入に使う
+  modeChosen: boolean; // 初回の「自分で/おまかせ」選択済み
+  tutStep: number; // 0..4（4=完了 or スキップ）
+  seenHints: string[]; // 表示済みの一回きりヒント
 }
 export interface CatchLogEntry {
   id: string; at: number; speciesId: string; sizeCm: number; weightKg: number; quality: number; method: 'float';
@@ -39,7 +46,7 @@ export const V1_BACKUP_KEY = 'realFishingWorld.save.v1backup';
 export const CATCHLOG_MAX = 300;
 
 export function defaultSettings(isIOS: boolean): Settings {
-  return { quality: isIOS ? 'mid' : 'high', moveSpeed: 1.0, lookSens: 1.0, hints: true, camera: 'first', alwaysRun: false, sound: true, vibration: true };
+  return { quality: isIOS ? 'mid' : 'high', moveSpeed: 1.0, lookSens: 1.0, hints: true, camera: 'first', alwaysRun: false, sound: true, vibration: true, auto: false, assist: true, oneHand: 'off', castPower: 0, modeChosen: false, tutStep: 0, seenHints: [] };
 }
 export function defaultSave(isIOS: boolean): SaveData {
   return {
@@ -67,6 +74,14 @@ function parseSettings(s: any, def: Settings, repairs: string[]): Settings {
     alwaysRun: typeof s.alwaysRun === 'boolean' ? s.alwaysRun : false,
     sound: typeof s.sound === 'boolean' ? s.sound : true,
     vibration: typeof s.vibration === 'boolean' ? s.vibration : true,
+    auto: typeof s.auto === 'boolean' ? s.auto : false,
+    assist: typeof s.assist === 'boolean' ? s.assist : true,
+    oneHand: s.oneHand === 'right' || s.oneHand === 'left' ? s.oneHand : 'off',
+    castPower: num(s.castPower, 0, 1, 0),
+    // 既存プレイヤー（旧セーブ）には初回選択・チュートリアルを出さない（modeChosen/tutStep が無い＝v0.2.0 のデータ）
+    modeChosen: typeof s.modeChosen === 'boolean' ? s.modeChosen : false,
+    tutStep: Math.round(num(s.tutStep, 0, 4, 0)),
+    seenHints: Array.isArray(s.seenHints) ? s.seenHints.filter((x: unknown) => typeof x === 'string').slice(0, 40) : [],
   };
 }
 function parsePosition(p: any): SaveData['position'] {

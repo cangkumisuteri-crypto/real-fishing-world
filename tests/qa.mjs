@@ -2,6 +2,7 @@
  * 注意: ヘッドレス＋ソフトウェアGL。FPSは実機の値ではない。実機iPhoneは未検証。 */
 import fs from 'fs'; import path from 'path';
 import { fishFlow, phaseLayouts, auditFixes } from './fishflow.mjs';
+import { phase21, firstRun } from './phase21.mjs';
 import { webkit, chromium, devices, serve, sleep, WK_ENV, CHROMIUM_ARGS, collect } from './lib.mjs';
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.split('=').slice(1).join('=') : d; };
 const OUT = path.resolve(arg('out', 'tests/out')); fs.mkdirSync(OUT, { recursive: true });
@@ -220,7 +221,10 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
     rec(suite, 'fishing mode: exit returns to walking UI', outFish);
 
     // ---- 6b. Phase2 ウキ釣りフロー ----
-    await fishFlow({ page, suite, rec, touch, until, OUT, Q, waitBoot });
+    if (!arg('p21only', '')) await fishFlow({ page, suite, rec, touch, until, OUT, Q, waitBoot });
+    await phase21({ page, suite, rec, touch, until, OUT, Q, waitBoot, devOpts: ctxOpts }, hudRects);
+    await firstRun({ page, suite, rec, touch, until, OUT, Q, waitBoot }, hudRects, ctxOpts);
+    if (arg('p21only', '')) throw new Error('p21only: stop here (dev run)');
     await page.goto(Q('&q=mid&t=14&seed=7')); await waitBoot(page);
     if (touch) await page.tap('#play'); else await page.click('#play');
     await until(page, () => document.body.classList.contains('playing')); await sleep(600);

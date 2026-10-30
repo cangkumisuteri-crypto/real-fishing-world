@@ -30,6 +30,7 @@ export type SessionEvent =
   | { kind: 'toast'; msg: string; level?: 'info' | 'warn' }
   | { kind: 'hint'; msg: string }
   | { kind: 'reel_in_done' }
+  | { kind: 'quick_retrieve' }
   | { kind: 'spook' };
 
 interface Beat { t: number; amp: number; dur: number; kind: 'pre' | 'main' }
@@ -56,6 +57,8 @@ export class FishingSession {
   fx = 0; fz = 0; fvx = 0; fvz = 0; floatInWater = false; settle = 0; baitDepthNow = 0; seabed = 0; zone = 0;
   floatDip = 0; floatSlide = 0; floatTilt = 0;
   retrieving = false; reelHeld = false; distToPlayer = 0;
+  /** 回収ボタン（約1秒の高速巻き上げ）。null=通常 */
+  quick: { t: number; dur: number; sx: number; sz: number; tx: number; tz: number; lost: boolean } | null = null; lastPower = 0;
   bait: BaitState | null = null; baitLife = 1;
   // アタリ
   script: BiteScript | null = null; t = 0; waitT = 0; sinceBite = 0; sinceAction = 0;
@@ -90,13 +93,13 @@ export class FishingSession {
   /* ---------- 開始 ---------- */
   begin(px: number, pz: number, yaw: number) {
     this.px = px; this.pz = pz; this.yaw = yaw;
-    this.phase = 'ready'; this.fight = null; this.script = null; this.bait = null; this.floatInWater = false;
+    this.phase = 'ready'; this.fight = null; this.script = null; this.bait = null; this.floatInWater = false; this.quick = null;
     const dx = -Math.sin(yaw), dz = -Math.cos(yaw);
     this.sim.agents.length = 0;
     this.sim.populate(px + dx * 12, pz + dz * 12, true);
     this.casts = 0;
   }
-  end() { this.phase = 'ready'; this.fight = null; this.script = null; this.bait = null; this.floatInWater = false; this.aiming = false; this.sim.agents.length = 0; }
+  end() { this.quick = null; this.phase = 'ready'; this.fight = null; this.script = null; this.bait = null; this.floatInWater = false; this.aiming = false; this.sim.agents.length = 0; }
 
   /* ---------- 仕掛け ---------- */
   setRig(p: Partial<Rig>) {
@@ -142,7 +145,7 @@ export class FishingSession {
     this.phase = 'flight'; this.aiming = false; this.floatInWater = false; this.bait = null; this.script = null; this.snag = false;
     this.fx = this.px; this.fz = this.pz; this.retrieving = false;
     this.baitLife = this.baitLife > 0.2 ? this.baitLife : 1; // デモ: エサは無限（付け直しは自動）
-    this.casts++;
+    this.casts++; this.lastPower = p; this.quick = null;
     this.sinceBite = 0; this.sinceAction = 0;
     this.emit({ kind: 'cast', power: p, dist: L.dist });
     return true;
@@ -150,9 +153,45 @@ export class FishingSession {
   /** 回収（巻き上げ）開始/終了 */
   setRetrieve(on: boolean) { if (this.phase === 'wait' || this.phase === 'bite') this.reelHeld = on; else if (this.phase !== 'fight') this.reelHeld = false; }
 
+  /** 回収ボタン：魚が掛かっていない着水中なら、約1秒で仕掛けを巻き戻す（ウキ・ラインが水面を滑って戻る）。 */
+  quickRetrieve(): boolean {
+    if (this.quick || !this.floatInWater || (this.phase !== 'wait' && this.phase !== 'bite')) return false;
+    if (this.script) { this.sim.finishBite(this.script.agent, 'miss', this.bait); this.script = null; }
+    this.phase = 'wait'; this.reelHeld = false; this.retrieving = true;
+    const dx = this.px - this.fx, dz = this.pz - this.fz, d = Math.max(0.01, Math.hypot(dx, dz));
+    const lost = this.snag && this.rng.chance(0.35); this.snag = false; this.snagHold = 0;
+    this.quick = { t: 0, dur: clamp(0.7 + d * 0.012, 0.8, 1.1), sx: this.fx, sz: this.fz, tx: this.px + (this.fx - this.px) / d * 1.4, tz: this.pz + (this.fz - this.pz) / d * 1.4, lost };
+    this.noise = Math.max(this.noise, 0.25); this.floatDip = 0;
+    this.emit({ kind: 'quick_retrieve' });
+    return true;
+  }
+  private updateQuick(dt: number) {
+    const q = this.quick!; q.t += dt;
+    const u = clamp01(q.t / q.dur), e = u * u * (3 - 2 * u) * 0.35 + u * 0.65; // ほぼ等速＋少し加速
+    this.fx = lerp(q.sx, q.tx, e); this.fz = lerp(q.sz, q.tz, e);
+    this.baitDepthNow *= Math.max(0, 1 - dt * 6);
+    if (this.bait) { this.bait.x = this.fx; this.bait.z = this.fz; this.bait.depth = this.baitDepthNow; this.bait.action = 'retrieve'; }
+    this.distToPlayer = Math.hypot(this.fx - this.px, this.fz - this.pz);
+    if (u >= 1) { const lost = q.lost; this.quick = null; this.finishRetrieve(lost); }
+  }
+  /** おまかせ釣り用：水深・底質・ウキ下から「無難な投げ先」を選ぶ（向き yaw と強さ power） */
+  autoCastPlan(): { yaw: number; power: number; depth: number } | null {
+    const base = this.yaw; let best: { yaw: number; power: number; score: number; depth: number } | null = null;
+    for (const off of [0, 0.2, -0.2, 0.4, -0.4, 0.6, -0.6]) for (const pw of [0.55, 0.7, 0.4, 0.85, 0.3]) {
+      const y = base + off; const L = this.landing(y, pw); if (!L) continue;
+      const depth = this.world.depthAt(L.x, L.z), zone = this.world.zoneAt(L.x, L.z);
+      if (this.world.tetraAt(L.x, L.z)) continue;
+      let sc = -Math.abs(depth - (this.rig.depthM + 1.2)) * 0.8 + (zone === 1 || zone === 3 ? 0.8 : 0) - Math.abs(off) * 0.5 - Math.abs(pw - 0.6) * 0.3 + this.rng.u(0, 0.4);
+      if (depth < 1.8) sc -= 3;
+      if (!best || sc > best.score) best = { yaw: y, power: pw, score: sc, depth };
+    }
+    return best ? { yaw: best.yaw, power: best.power, depth: best.depth } : null;
+  }
+
   /* ---------- 合わせ ---------- */
   hookset(): void {
     if (this.phase === 'ready' || this.phase === 'aim' || this.phase === 'flight' || this.phase === 'fight' || this.phase === 'result') return;
+    if (this.quick) return;
     const sc = this.script;
     this.noise = Math.max(this.noise, 0.15);
     if (!sc || sc.done || !this.bait) {
@@ -304,6 +343,7 @@ export class FishingSession {
     const e = this.env, bait = this.bait;
     this.waitT += dt; this.settle += dt; this.sinceBite += dt;
     this.distToPlayer = Math.hypot(this.fx - this.px, this.fz - this.pz);
+    if (this.quick) { this.updateQuick(dt); this.hintT = 0; return; }
     // 回収
     if (this.reelHeld && this.phase === 'wait') {
       this.retrieving = true;
@@ -356,7 +396,7 @@ export class FishingSession {
   }
 
   private finishRetrieve(lost: boolean) {
-    this.floatInWater = false; this.bait = null; this.retrieving = false; this.reelHeld = false; this.phase = 'ready'; this.snag = false;
+    this.floatInWater = false; this.bait = null; this.retrieving = false; this.reelHeld = false; this.phase = 'ready'; this.snag = false; this.quick = null;
     this.emit({ kind: 'reel_in_done' });
     if (lost) this.emit({ kind: 'toast', msg: '仕掛けを失った… 新しい仕掛けをセットしたよ', level: 'warn' });
     this.baitLife = 1;

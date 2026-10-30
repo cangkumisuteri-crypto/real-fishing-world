@@ -21,7 +21,7 @@ export class FishingView {
   private shadows: THREE.InstancedMesh;
   private fightG = new THREE.Group(); private fightFish: THREE.Group | null = null; private fightId = '';
   private fightShadow: THREE.Mesh;
-  private catchG = new THREE.Group(); private catchFish: THREE.Group | null = null; private catchT = 0;
+  private quickRipT = 0; private catchG = new THREE.Group(); private catchFish: THREE.Group | null = null; private catchT = 0;
   private pnts: Float32Array; private pnts2 = new Float32Array(2 * 3);
   private idleRipT = 0;
   /** 画面に出ている魚影の数（QA） */
@@ -90,8 +90,8 @@ export class FishingView {
 
   showCatch(speciesId: string, sizeCm: number) {
     this.hideCatch();
-    const f = makeFish(speciesId, Math.min(0.55, Math.max(0.18, sizeCm / 100 * 0.9)));
-    this.catchFish = f; this.catchG.add(f); this.catchG.position.set(0, -0.08, -0.85); this.catchG.visible = true; this.catchT = 0;
+    const f = makeFish(speciesId, Math.min(0.5, Math.max(0.17, sizeCm / 100 * 0.75)));
+    this.catchFish = f; this.catchG.add(f); this.catchG.position.set(0, -0.1, -0.95); this.catchG.visible = true; this.catchT = 0;
   }
   hideCatch() { if (this.catchFish) { this.catchG.remove(this.catchFish); disposeObj(this.catchFish); this.catchFish = null; } this.catchG.visible = false; }
   get catchShown() { return !!this.catchFish; }
@@ -136,7 +136,7 @@ export class FishingView {
       r.m.scale.set(rad, 1, rad); (r.m.material as THREE.MeshBasicMaterial).opacity = (1 - k) * 0.75;
       r.m.position.y = WATER_Y + waveH(r.m.position.x, r.m.position.z, t) + 0.04;
     }
-    if (showRig && ph !== 'flight' && s.floatInWater) { this.idleRipT -= dt; if (this.idleRipT <= 0) { this.idleRipT = 3.2; this.ripple(s.fx, s.fz, 0.45); } }
+    if (showRig && ph !== 'flight' && s.floatInWater && !s.quick) { this.idleRipT -= dt; if (this.idleRipT <= 0) { this.idleRipT = 3.2; this.ripple(s.fx, s.fz, 0.45); } }
 
     // ウキ
     if (showRig) {
@@ -153,6 +153,10 @@ export class FishingView {
         x += rx * s.floatSlide * 0.9 * sc * 0.5; z += rz * s.floatSlide * 0.9 * sc * 0.5;
         y = WATER_Y + bob - s.floatDip * 0.42 * sc + (1 - settle) * 0.1 * sc + 0.02;
         if (s.floatTilt > 0.5 || s.snag) tilt = 1.15;
+        if (s.quick) { // 回収：水面を滑って最後に少し持ち上がる＋航跡
+          const u = Math.min(1, s.quick.t / s.quick.dur); y += Math.max(0, (u - 0.7) / 0.3) * 0.3 * sc; tilt = 0.5 * Math.min(1, u * 4);
+          this.quickRipT -= dt; if (this.quickRipT <= 0) { this.quickRipT = 0.11; this.ripple(s.fx, s.fz, 0.7); }
+        }
       }
       this.floatG.position.set(x, y, z); this.floatG.scale.setScalar(sc); this.floatG.rotation.set(0, 0, tilt);
       this.floatPos.copy(this.floatG.position);
@@ -216,7 +220,7 @@ export class FishingView {
     } else { this.fightG.visible = false; this.fightShadow.visible = false; if (this.fightFish && ph !== 'fight' && ph !== 'result') { this.fightG.remove(this.fightFish); disposeObj(this.fightFish); this.fightFish = null; } }
 
     // 釣れた魚の回転表示
-    if (this.catchFish) { this.catchT += dt; this.catchFish.rotation.y = this.catchT * 0.9 + 0.4; this.catchFish.rotation.z = 0.15 + Math.sin(this.catchT * 5) * 0.06 * Math.max(0, 1 - this.catchT / 1.5); }
+    if (this.catchFish) { this.catchT += dt; this.catchFish.rotation.y = 0.55 + Math.sin(this.catchT * 0.6) * 0.35; this.catchFish.rotation.z = 0.05 + Math.sin(this.catchT * 4) * 0.05 * Math.max(0, 1 - this.catchT / 1.2); }
     void SPECIES_BY_ID; void V;
   }
 }

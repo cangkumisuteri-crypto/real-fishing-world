@@ -12,10 +12,10 @@
 :root{
   --sa-t: env(safe-area-inset-top, 0px); --sa-r: env(safe-area-inset-right, 0px);
   --sa-b: env(safe-area-inset-bottom, 0px); --sa-l: env(safe-area-inset-left, 0px);
-  --gap:12px; --tb:48px; --main:72px; --mainF:80px; --joy:128px; --reel:96px;
+  --gap:12px; --tb:48px; --main:72px; --mainF:88px; --joy:128px; --reel:96px;
   --btn:rgba(12,22,38,.58); --accent:#FF8A3D; --danger:#E5484D; --ink:#fff;
 }
-@media (orientation:landscape){ :root{ --main:64px; --mainF:72px; --joy:112px; --reel:88px; } }
+@media (orientation:landscape){ :root{ --main:64px; --mainF:76px; --joy:112px; --reel:88px; } }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#0b1424;overscroll-behavior:none;touch-action:none;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
@@ -68,7 +68,8 @@ button{font:inherit;color:inherit;border:0;margin:0;padding:0;cursor:pointer;tou
 /* 釣りUI */
 #btnReel{left:calc(var(--sa-l) + 24px);bottom:calc(var(--sa-b) + 32px);width:var(--reel);height:var(--reel);border-radius:50%}
 #btnAction{right:calc(var(--sa-r) + 20px);bottom:calc(var(--sa-b) + 32px);width:var(--mainF);height:var(--mainF);border-radius:50%;background:rgba(90,96,108,.8)}
-#btnBait{right:calc(var(--sa-r) + 20px + (var(--mainF) - 48px)/2);bottom:calc(var(--sa-b) + 32px + var(--mainF) + var(--gap));width:48px;height:48px}
+#btnRetrieve,#btnAim{right:calc(var(--sa-r) + 20px + (var(--mainF) - 60px)/2);bottom:calc(var(--sa-b) + 32px + var(--mainF) + var(--gap));width:60px;height:60px;border-radius:16px}
+#btnAuto{right:calc(var(--sa-r) + 20px + (var(--mainF) - 56px)/2);bottom:calc(var(--sa-b) + 32px + var(--mainF) + var(--gap) + 60px + 10px);width:56px;height:56px}
 #infoCard{position:absolute;top:calc(var(--sa-t) + 64px);left:50%;transform:translateX(-50%);width:min(320px,calc(100vw - var(--sa-l) - var(--sa-r) - 32px));
   padding:8px 12px;border-radius:12px;background:var(--btn);border:1px solid rgba(255,255,255,.25);font-size:13px;line-height:1.45;font-weight:600;text-shadow:0 1px 2px #000}
 #infoCard b{color:#ffd37a}
@@ -91,8 +92,6 @@ body[data-mode="move"] #toast{bottom:calc(var(--sa-b) + 24px + var(--joy) + var(
 #btnAction.alert{background:var(--danger);border-color:#fff;animation:pulse .35s infinite alternate}
 #btnAction.hold{background:var(--accent);box-shadow:0 0 0 4px rgba(255,138,61,.5)}
 @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.1)}}
-#btnAction .lb{font-size:13px}
-#btnBait .lb{font-size:11px}
 .sm{width:44px;height:44px;border-radius:12px;font-size:22px;font-weight:800}
 #dragPlus{left:calc(var(--sa-l) + 132px);bottom:calc(var(--sa-b) + 32px + 44px + 4px + 32px + 4px)}
 #dragVal{left:calc(var(--sa-l) + 132px);bottom:calc(var(--sa-b) + 32px + 44px + 4px);width:44px;height:32px;position:absolute;flex-direction:column;align-items:center;justify-content:center;
@@ -114,17 +113,71 @@ body[data-mode="move"] #toast{bottom:calc(var(--sa-b) + 24px + var(--joy) + var(
 #rodInd .bar{position:relative;flex:1;width:6px;margin:3px 0 4px;border-radius:3px;background:rgba(255,255,255,.3)}
 #rodInd .bar i{position:absolute;left:-5px;width:16px;height:5px;border-radius:2px;background:#FF8A3D;bottom:50%}
 #rodInd .bar u{position:absolute;left:-2px;width:10px;bottom:34%;height:22%;background:rgba(124,224,160,.55);border-radius:2px;text-decoration:none}
+#btnRetrieve{background:rgba(24,70,110,.82);border-color:#bfe3ff}
+#btnRetrieve .ic,#btnAim .ic{font-size:24px;font-weight:900}
+#btnRetrieve .lb,#btnAim .lb{font-size:12px}
+#btnAim{background:rgba(12,22,38,.7)}
+#btnAuto .lb{font-size:10px}
+#btnAuto.on{background:var(--accent);border-color:#fff;box-shadow:0 0 0 3px rgba(255,138,61,.45)}
+body[data-auto="1"] #btnAction{background:rgba(90,96,108,.75)}
+.tutHi{animation:tutHi .8s infinite alternate;box-shadow:0 0 0 4px rgba(255,255,255,.85)!important}
+@keyframes tutHi{from{outline:0 solid rgba(255,255,255,.0)}to{outline:6px solid rgba(255,255,255,.35)}}
+#btnAction .ic{font-size:26px}
+#btnAction .lb{font-size:14px}
+/* アタリ・合わせの合図（操作を邪魔しない） */
+#cue{position:fixed;left:50%;top:46%;transform:translate(-50%,-50%) scale(1);z-index:20;pointer-events:none;opacity:0;font-weight:900;font-size:34px;letter-spacing:.04em;text-shadow:0 2px 6px #000,0 0 14px rgba(0,0,0,.6);white-space:nowrap;padding:4px 18px;border-radius:14px;background:rgba(10,18,32,.55)}
+#cue.show{animation:cueIn .9s ease-out forwards}
+#cue.bite{color:#ffd37a}#cue.hit{color:#9be8b4}#cue.miss{color:#cfd6df}#cue.pre{font-size:18px;color:#fff}
+@keyframes cueIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}25%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0}}
+#flash{position:fixed;inset:0;z-index:19;pointer-events:none;box-shadow:inset 0 0 0 0 rgba(255,138,61,0);opacity:0}
+#flash.show{animation:flashIn .7s ease-out}
+@keyframes flashIn{0%{opacity:1;box-shadow:inset 0 0 70px 14px rgba(255,138,61,.75)}100%{opacity:0;box-shadow:inset 0 0 70px 14px rgba(255,138,61,0)}}
+/* チュートリアル（短く・いつでもスキップ） */
+#tutBar{position:absolute;top:calc(var(--sa-t) + 64px);left:50%;transform:translateX(-50%);width:min(340px,calc(100vw - var(--sa-l) - var(--sa-r) - 32px));min-height:44px;display:none;align-items:center;gap:8px;padding:2px 4px 2px 10px;
+  border-radius:12px;background:rgba(255,255,255,.94);color:#12202f;border:2px solid var(--accent);font-size:13px;font-weight:800;line-height:1.3;text-shadow:none;z-index:25}
+#tutBar.show{display:flex}
+#tutBar .n{flex:none;min-width:30px;font-size:11px;color:#c25a12}
+#tutBar .t{flex:1;min-width:0}
+#tutSkip{flex:none;min-width:56px;min-height:44px;border-radius:10px;background:#e8edf3;color:#334;font-weight:800;font-size:12px;padding:0 8px;position:relative}
+#tutSkip::before{content:"";position:absolute;inset:-2px}
+body[data-phase="aim"] #tutBar,body[data-phase="fight"] #tutBar{top:calc(var(--sa-t) + 64px + 26px)}
+body[data-tut="1"][data-phase="fight"] #fightInfo{display:none!important}
+body[data-tut="1"]:not([data-phase="fight"]) #infoCard{display:none!important}
+/* 釣り中のトースト位置：縦持ちは右ボタン列の上、横持ちは下中央 */
+body[data-mode="fish"] #toast{bottom:calc(var(--sa-b) + var(--mainF) + 184px)}
+@media (orientation:landscape){ body[data-mode="fish"] #toast{bottom:calc(var(--sa-b) + 10px);max-width:max(180px,calc(100vw - 400px))} }
+/* 片手レイアウト：右手（右の親指に集約）／左手（左の親指に集約） */
+body[data-hand="right"] #btnReel{left:auto;right:calc(var(--sa-r) + 20px + var(--mainF) + var(--gap))}
+body[data-hand="right"] #dragMinus{left:auto;right:calc(var(--sa-r) + 20px + var(--mainF) + var(--gap));bottom:calc(var(--sa-b) + 32px + var(--reel) + 10px)}
+body[data-hand="right"] #dragVal{left:auto;right:calc(var(--sa-r) + 20px + var(--mainF) + var(--gap) + 48px);bottom:calc(var(--sa-b) + 32px + var(--reel) + 10px)}
+body[data-hand="right"] #dragPlus{left:auto;right:calc(var(--sa-r) + 20px + var(--mainF) + var(--gap) + 96px);bottom:calc(var(--sa-b) + 32px + var(--reel) + 10px)}
+body[data-hand="left"] #btnAction{right:auto;left:calc(var(--sa-l) + 20px)}
+body[data-hand="left"] #btnRetrieve,body[data-hand="left"] #btnAim{right:auto;left:calc(var(--sa-l) + 20px + (var(--mainF) - 60px)/2)}
+body[data-hand="left"] #btnAuto{right:auto;left:calc(var(--sa-l) + 20px + (var(--mainF) - 56px)/2)}
+body[data-hand="left"] #rodInd{right:auto;left:calc(var(--sa-l) + 20px + (var(--mainF) - 44px)/2)}
+body[data-hand="left"] #btnReel{left:calc(var(--sa-l) + 20px + var(--mainF) + var(--gap))}
+body[data-hand="left"] #dragMinus{left:calc(var(--sa-l) + 20px + var(--mainF) + var(--gap));bottom:calc(var(--sa-b) + 32px + var(--reel) + 10px)}
+body[data-hand="left"] #dragVal{left:calc(var(--sa-l) + 20px + var(--mainF) + var(--gap) + 48px);bottom:calc(var(--sa-b) + 32px + var(--reel) + 10px)}
+body[data-hand="left"] #dragPlus{left:calc(var(--sa-l) + 20px + var(--mainF) + var(--gap) + 96px);bottom:calc(var(--sa-b) + 32px + var(--reel) + 10px)}
+/* 結果カード：控えめに */
 #resultCard{position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:calc(var(--sa-b) + 14px);width:min(380px,calc(100vw - var(--sa-l) - var(--sa-r) - 24px));display:none;
   padding:12px 14px;border-radius:16px;background:rgba(8,16,30,.9);border:1.5px solid rgba(255,255,255,.5);text-align:center;text-shadow:0 1px 2px #000;max-height:calc(100vh - var(--sa-t) - var(--sa-b) - 80px);overflow:auto;touch-action:pan-y}
 #resultCard.open{display:block}
 #resultCard h2{margin:0 0 4px;font-size:20px}
-#resultCard .big{font-size:26px;font-weight:800;color:#ffd37a;margin:2px 0}
+#resultCard .big{font-size:22px;font-weight:800;color:#fff;margin:2px 0}
 #resultCard p{margin:3px 0;font-size:13px;line-height:1.45}
-#resultCard .badge{display:inline-block;padding:2px 10px;border-radius:10px;background:#E5484D;font-size:12px;font-weight:800;margin-left:6px;vertical-align:middle}
+#resultCard .badge{display:inline-block;padding:2px 10px;border-radius:10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.5);font-size:12px;font-weight:800;margin-left:6px;vertical-align:middle}
 #resultCard .btns{display:flex;gap:10px;justify-content:center;margin-top:8px}
 #resultCard .btns button{flex:1;min-height:48px;border-radius:12px;font-weight:800;font-size:16px;background:rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.5)}
 #resultCard .btns button.pri{background:var(--accent);border-color:#fff}
 body[data-phase="result"] #toast{display:none}
+#startChoice{position:fixed;inset:0;z-index:60;background:rgba(6,12,22,.82);display:none;align-items:center;justify-content:center;padding:16px;touch-action:none}
+#startChoice.open{display:flex}
+#startChoice .box{width:min(340px,100%);display:flex;flex-direction:column;gap:12px;text-align:center}
+#startChoice h2{margin:0;font-size:20px}
+#startChoice button{min-height:72px;border-radius:16px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:18px;padding:8px}
+#startChoice button#chManual{background:var(--accent);border-color:#fff}
+#startChoice small{font-size:12px;font-weight:600;opacity:.9}
 #panel .depthrow{display:flex;gap:10px;align-items:center;justify-content:center;margin:6px 0}
 #panel .depthrow button{width:56px;height:48px;border-radius:12px;background:rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.5);font-size:24px;font-weight:800}
 #panel .depthrow b{font-size:22px;min-width:84px;text-align:center}
@@ -142,6 +195,7 @@ body[data-phase="result"] #toast{display:none}
 #panel h2{margin:4px 0 10px;font-size:20px;padding-right:96px}
 #panel .close{position:fixed;top:calc(var(--sa-t) + 8px);right:calc(var(--sa-r) + 16px);min-width:84px;height:44px;border-radius:12px;background:var(--accent);font-weight:800;font-size:15px;padding:0 14px;z-index:41}
 #panel .sec{background:rgba(255,255,255,.07);border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:14px;line-height:1.55}
+#panel .lbl{margin:8px 0 4px;font-size:13px;font-weight:700}
 #panel .sec h3{margin:0 0 6px;font-size:14px;color:#ffd37a}
 #panel .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
 #panel .seg button{min-height:44px;padding:0 14px;border-radius:10px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);font-weight:700;font-size:14px}
@@ -189,6 +243,7 @@ body[data-phase="result"] #toast{display:none}
   <div id="chipF" class="chip fs" data-ui data-info><div id="chipFTop">ウキ釣り（準備中）</div><small id="chipFSub">波戸浦港</small></div>
   <button id="btnGear" class="btn tb fs" data-ui><span class="ic">⚙</span><span class="lb">仕掛け</span></button>
   <div id="infoCard" class="fs" data-ui data-info></div>
+  <div id="tutBar" data-ui data-info><span class="n" id="tutN">1/4</span><span class="t" id="tutTxt"></span><button id="tutSkip" data-ui>スキップ</button></div>
   <div id="tenGauge" class="gauge ph" data-ui data-info><i></i><span>テンション</span></div>
   <div id="powerGauge" class="gauge ph" data-ui data-info><i></i><span>パワー</span></div>
   <div id="fightInfo" class="ph" data-ui data-info></div>
@@ -197,21 +252,28 @@ body[data-phase="result"] #toast{display:none}
   <div id="dragVal" class="fs ph" data-ui data-info><span>ドラグ</span><b>0.75</b></div>
   <button id="dragMinus" class="btn sm fs ph" data-ui aria-label="ドラグを弱く">−</button>
   <div id="rodInd" class="fs ph" data-ui data-info><span id="rodTxt">竿50°</span><div class="bar"><u></u><i></i></div></div>
-  <button id="btnBait" class="btn fs ph show" data-ui><span class="ic">📏</span><span class="lb">ウキ下</span></button>
+  <button id="btnRetrieve" class="btn fs ph" data-ui aria-label="回収（仕掛けをすぐ巻き戻す）"><span class="ic">↩</span><span class="lb">回収</span></button>
+  <button id="btnAim" class="btn fs ph" data-ui aria-label="狙って投げる"><span class="ic">🎯</span><span class="lb">狙う</span></button>
+  <button id="btnAuto" class="btn fs ph show" data-ui aria-label="おまかせ釣り"><span class="ic">🤖</span><span class="lb">おまかせ</span></button>
   <button id="btnAction" class="btn fs ph show" data-ui><span class="ic">🎯</span><span class="lb">キャスト</span></button>
 </div>
+<div id="cue" aria-hidden="true"></div>
+<div id="flash" aria-hidden="true"></div>
 <div id="toast"></div>
+<div id="startChoice" role="dialog" aria-label="釣り方の選択"><div class="box"><h2>どちらで釣る？</h2>
+  <button id="chManual" data-ui><b>自分で釣る</b><small>投げる・合わせる・巻く（基本）</small></button>
+  <button id="chAuto" data-ui><b>おまかせで釣る</b><small>見ているだけでOK・あとで変更可</small></button></div></div>
 <div id="resultCard" role="dialog" aria-live="polite"></div>
 <div id="panel"><button class="close" id="panelClose">閉じる</button><div id="panelBody"></div></div>
 
 <div id="loading">
   <h1>REAL FISHING WORLD</h1>
-  <div class="sub">波戸浦港 — Phase 2：ウキ釣り</div>
+  <div class="sub">波戸浦港 — ウキ釣り</div>
   <div id="bar"><i></i></div>
   <div id="loadMsg">起動中…</div>
   <button id="play" disabled>読み込み中…</button>
-  <div class="how">左半分をドラッグ＝移動 ／ 右半分をスワイプ＝視点<br>水辺で「釣り開始」→ キャスト → ウキを見て、沈んだら「合わせ」→ 巻いて寄せよう。<br>PC: WASD移動・ドラッグで視点・Fで釣り開始</div>
-  <div class="ver">v0.2.0 Phase 2 ・ 架空の港です</div>
+  <div class="how">左半分をドラッグ＝移動 ／ 右半分をスワイプ＝視点<br>水辺で「釣り開始」→ キャスト → 沈んだら「合わせ」→ 巻いて寄せる。<br>回収ボタンで投げ直し・おまかせ釣りもあります。<br>PC: WASD移動・ドラッグで視点・Fで釣り開始</div>
+  <div class="ver">v0.3.0 ・ 架空の港です</div>
 </div>
 <div id="err"><h2>⚠ エラーが発生しました</h2><div id="errMsg"></div><pre id="errStack"></pre>
   <button onclick="location.reload()">再読み込み</button><button onclick="document.getElementById('err').classList.remove('open')">閉じる</button></div>

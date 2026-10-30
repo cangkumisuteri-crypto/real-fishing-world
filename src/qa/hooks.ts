@@ -29,12 +29,12 @@ export function installQaHooks(c: any) {
         const fp = v.floatPos.clone().project(cam);
         const ui = f.ui.e; const vis = (el: HTMLElement) => el.classList.contains('show') || (getComputedStyle(el).display !== 'none');
         return {
-          active: f.active, phase: s.phase, snap: s.snapshot(), rig: { ...s.rig }, aimPower: s.aimPower, drag: s.inp.drag, theta: s.inp.theta, reel: s.inp.reel, steer: s.inp.steer,
+          active: f.active, phase: s.phase, quick: !!s.quick, auto: f.auto, assist: f.assist, snap: s.snapshot(), rig: { ...s.rig }, aimPower: s.aimPower, drag: s.inp.drag, theta: s.inp.theta, reel: s.inp.reel, steer: s.inp.steer,
           floatShown: v.floatShown, floatNdc: { x: fp.x, y: fp.y, z: fp.z }, shadows: v.shadowCount, rodBend: v.rodBend, catchShown: v.catchShown, fightFish: v.fightFishShown,
           fx: s.fx, fz: s.fz, seabed: s.seabed, baitLife: s.baitLife, snag: s.snag, stats: { ...s.stats }, fight: s.fight ? { sp: s.fight.sp.id, nameJa: s.fight.sp.nameJa, dist: s.fight.dist, tension: s.fight.tension, mode: s.fight.mode, S: s.fight.S, result: s.fight.result, sizeCm: s.fight.sizeCm } : null,
           sfx: { ...f.sfx.counts, state: f.sfx.state, enabled: f.sfx.enabled }, hap: { ...f.hap.counts, shake: f.hap.shake, canVibrate: f.hap.canVibrate, enabled: f.hap.enabled },
           biteEvents: f.biteEvents, inp: { flickOn: c.input.flickOn, lookId: c.input.lookId, fightMode: c.input.fightMode, enabled: c.input.enabled, active: f.active, yaw: c.player.yaw, land: f.session.landing(c.player.yaw, 0.6) }, resultShown: f.resultShown, resultText: f.ui.e.result.textContent, log: f.log.slice(-30),
-          ui: { action: ui.action.textContent, actionClass: ui.action.className, reel: vis(ui.reel), ten: vis(ui.ten), power: vis(ui.power), rod: vis(ui.rod), bait: vis(ui.bait), info: ui.info.textContent, card: ui.card.textContent },
+          ui: { action: ui.action.textContent, actionClass: ui.action.className, reel: vis(ui.reel), ten: vis(ui.ten), power: vis(ui.power), rod: vis(ui.rod), retrieve: vis(ui.retrieve), aim: vis(ui.aim), auto: vis(ui.auto), autoOn: ui.auto.classList.contains('on'), cue: ui.cue.textContent, tut: { step: f.tut.step, text: document.getElementById('tutTxt')!.textContent, shown: document.getElementById('tutBar')!.classList.contains('show') }, info: ui.info.textContent, card: ui.card.textContent },
           save: { zukan: f.d.data.zukan, catchLog: f.d.data.catchLog.length, stats: { ...f.d.data.stats }, lastRig: f.d.data.lastRig },
         };
       },
@@ -51,7 +51,7 @@ export function installQaHooks(c: any) {
           const fi = s.fight!; const m = fi.mode;
           f.setReel(opts.reelAlways ? true : !(m === 'run' || m === 'dive' || m === 'wedged' || m === 'headshake') && fi.tension < T);
           f.qaPose = { theta: opts.theta ?? 55, steer: m === 'side_run' ? (fi.bearing > 0 ? -1 : 1) : 0 };
-          if (opts.drag) s.inp.drag = opts.drag;
+          if (opts.drag) { s.inp.drag = opts.drag; f.qaManualDrag = true; }
           f.advance(0.1); n++;
         }
         f.setReel(false); f.qaPose = { theta: null, steer: null };
@@ -60,7 +60,17 @@ export function installQaHooks(c: any) {
       advance(sec: number) { guard(); c.fishing.advance(sec); },
       forceBite(id: string, cm?: number) { guard(); return c.fishing.session.forceBite(id, cm); },
       pose(theta: number | null, steer: number | null) { guard(); c.fishing.qaPose = { theta, steer }; },
-      drag(v: number) { c.fishing.session.inp.drag = v; },
+      drag(v: number) { c.fishing.session.inp.drag = v; c.fishing.qaManualDrag = true; },
+      retrieve() { return c.fishing.retrieve(); },
+      quickCast(on: boolean) { guard(); const f = c.fishing; f.quickCastOn = on; f.applySettings(f.d.settings()); f.ui.invalidate(); },
+      mainTap() { c.fishing.mainTap(); },
+      toggleAuto(on?: boolean) { c.fishing.toggleAuto(on); },
+      settings(p?: any) { if (p) c.fishing.d.patch(p); return { ...c.fishing.d.settings() }; },
+      tutorial: {
+        restart() { c.fishing.tut.restart(); }, skip() { c.fishing.tut.finish(false); },
+      },
+      /** 魚モデルの確認用：カメラ前に魚を表示（種ID, 全長cm）。null で消す */
+      preview(id: string | null, cm = 30) { guard(); if (id) c.fishing.view.showCatch(id, cm); else c.fishing.view.hideCatch(); },
       reel(on: boolean) { c.fishing.setReel(on); },
       raise(on: boolean) { c.fishing.setRaise(on); },
       dismiss(release = false) { c.fishing.closeResult(release); },

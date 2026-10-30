@@ -12,17 +12,25 @@ export interface RigPanelApi {
   rig(): Rig; phase(): Phase; seabed(): number; seabedKnown(): boolean;
   setRig(p: Partial<Rig>): void; preset(id: string): void; depth(delta: number): void;
 }
-export interface FightView { known: boolean; name: string; sizeCm: number; dist: number; bearing: number; mode: string; tension: number; slipping: boolean; drag: number; theta: number; raised: boolean }
+export interface FightView { known: boolean; name: string; sizeCm: number; dist: number; bearing: number; mode: string; tension: number; slipping: boolean; drag: number; theta: number; raised: boolean; assist?: boolean; auto?: boolean }
 
 export class FishUI {
   e = {
-    action: $('btnAction'), reel: $('btnReel'), bait: $('btnBait'), gear: $('btnGear'), exit: $('btnExit'),
+    action: $('btnAction'), reel: $('btnReel'), retrieve: $('btnRetrieve'), aim: $('btnAim'), auto: $('btnAuto'), cue: $('cue'), flash: $('flash'), gear: $('btnGear'), exit: $('btnExit'),
     dragPlus: $('dragPlus'), dragMinus: $('dragMinus'), dragVal: $('dragVal'), rod: $('rodInd'),
     ten: $('tenGauge'), power: $('powerGauge'), info: $('fightInfo'), card: $('infoCard'), result: $('resultCard'),
   };
   private cache: Record<string, string> = {};
   /** 準備中に表示する釣り場情報（hud.showFishing が作る） */
   readyHtml = '';
+  /** 設定・状態（controller が設定する。変えたら invalidate()） */
+  autoOn = false; assistOn = true; quickCast = false;
+  invalidate() { this.cache.phase = ''; }
+  /** アタリ・合わせの合図（中央の大きな文字＋画面ふちのフラッシュ） */
+  cue(kind: 'bite' | 'hit' | 'miss' | 'pre', text: string) {
+    const c = this.e.cue; c.className = ''; void c.offsetWidth; c.textContent = text; c.className = `show ${kind}`;
+    if (kind === 'bite' || kind === 'hit') { const f = this.e.flash; f.className = ''; void f.offsetWidth; f.className = 'show'; }
+  }
   private show(el: HTMLElement, on: boolean) { el.classList.toggle('show', on); }
 
   /** フェーズごとのボタン表示 */
@@ -30,10 +38,17 @@ export class FishUI {
     const e = this.e;
     document.body.dataset.phase = ph;
     const wait = ph === 'wait' || ph === 'bite';
+    const fightManual = !this.assistOn && !this.autoOn;
     this.show(e.action, ph !== 'result');
-    this.show(e.reel, wait || ph === 'fight');
-    this.show(e.bait, ph === 'ready' || wait);
-    for (const el of [e.dragPlus, e.dragMinus, e.dragVal, e.rod, e.ten, e.info]) this.show(el, ph === 'fight');
+    this.show(e.reel, !this.autoOn && (wait || ph === 'fight'));
+    this.show(e.retrieve, wait);
+    this.show(e.aim, ph === 'ready' && this.quickCast && !this.autoOn);
+    this.show(e.auto, ph !== 'result' && !(ph === 'fight' && fightManual));
+    e.auto.classList.toggle('on', this.autoOn);
+    (e.auto.querySelector('.lb') as HTMLElement).textContent = this.autoOn ? 'おまかせ中' : 'おまかせ';
+    e.auto.setAttribute('aria-pressed', this.autoOn ? 'true' : 'false');
+    for (const el of [e.dragPlus, e.dragMinus, e.dragVal, e.rod]) this.show(el, ph === 'fight' && fightManual);
+    for (const el of [e.ten, e.info]) this.show(el, ph === 'fight');
     this.show(e.power, ph === 'aim');
     e.card.style.display = ph === 'fight' || ph === 'aim' || ph === 'result' ? 'none' : '';
     this.show(e.exit, ph !== 'result');
@@ -42,7 +57,11 @@ export class FishUI {
     const a = e.action; const lb = a.querySelector('.lb')!, ic = a.querySelector('.ic')!;
     a.classList.remove('go', 'alert', 'hold', 'off');
     const set = (i: string, l: string) => { ic.textContent = i; lb.textContent = l; };
-    switch (ph) {
+    if (this.autoOn) {
+      a.classList.add('off');
+      const L: Record<string, string> = { ready: '投げ待ち', aim: '投げ待ち', flight: '飛行中', wait: 'アタリ待ち', bite: '合わせ中', fight: 'ファイト中' };
+      set('🤖', L[ph] ?? '');
+    } else switch (ph) {
       case 'ready': set('🎯', 'キャスト'); a.classList.add('go'); break;
       case 'aim': set('🎯', '投げる！'); a.classList.add('go'); break;
       case 'flight': set('…', '飛行中'); a.classList.add('off'); break;
@@ -51,6 +70,7 @@ export class FishUI {
       case 'fight': set('⬆', '竿を立てる'); break;
       default: break;
     }
+    document.body.dataset.auto = this.autoOn ? '1' : '0';
     this.cache = { ...this.cache, phase: ph };
     void s;
   }
@@ -62,7 +82,7 @@ export class FishUI {
     const e = this.e, c = this.cache;
     if (c.phase !== s.phase) this.setPhase(s.phase, s);
     const rig = s.rig;
-    setIf(e.bait, 'depth', rig.depthM.toFixed(1), c, () => { e.bait.querySelector('.ic')!.textContent = rig.depthM.toFixed(1) + 'm'; (e.bait.querySelector('.ic') as HTMLElement).style.fontSize = '14px'; });
+    e.retrieve.classList.toggle('off', !!s.quick);
     if (s.phase === 'aim') {
       const L = s.landing(s.yaw, s.aimPower);
       const txt = L ? `パワー ${Math.round(s.aimPower * 100)}%（約${L.dist.toFixed(0)}m）` : '投げられない方向です';
@@ -71,7 +91,7 @@ export class FishUI {
     }
     if (s.phase === 'wait' || s.phase === 'bite' || s.phase === 'flight') {
       const bait = Math.round(extra.baitPct);
-      const html = `ウキ下 <b>${rig.depthM.toFixed(1)}m</b> ／ 水深 約${s.phase === 'flight' ? '?' : s.seabed.toFixed(1)}m ／ エサ <b>${bait}%</b><br><small>${s.snag ? '根掛かり！ 巻いて外そう' : s.phase === 'bite' ? 'ウキが動いた！ 合わせ！' : s.phase === 'wait' ? 'ウキを見よう。沈む前の小さな動き（前アタリ）に注意' : '飛んでいます…'}</small>`;
+      const html = `ウキ下 <b>${rig.depthM.toFixed(1)}m</b> ／ 水深 約${s.phase === 'flight' ? '?' : s.seabed.toFixed(1)}m ／ エサ <b>${bait}%</b><br><small>${s.snag ? '根掛かり！ 巻いて外そう' : s.phase === 'bite' ? 'ウキが動いた！ 合わせ！' : s.phase === 'wait' ? 'ウキを見よう。沈んだら「合わせ」' : '飛んでいます…'}</small>`;
       setIf(e.card, 'info', html, c, () => { e.card.innerHTML = html; });
     } else if (s.phase === 'ready') {
       setIf(e.card, 'info', 'ready' + this.readyHtml, c, () => { e.card.innerHTML = this.readyHtml; });
@@ -87,13 +107,13 @@ export class FishUI {
       const opp = b > 0.12 ? '左' : '右';
       let tip = '';
       switch (fv.mode) {
-        case 'run': tip = '走ってる！ ドラグに任せて耐えよう（巻くのは待つ）'; break;
-        case 'side_run': tip = `魚が${side}へ横走り → 竿を${opp}へ（横にドラッグ）`; break;
-        case 'dive': tip = '底へ突っ込む！ 竿を立ててためよう'; break;
-        case 'wedged': tip = '根に入られた！ 竿を立てて、ゆっくり耐える'; break;
-        case 'headshake': tip = '首振り！ 竿を立てて衝撃を逃がそう'; break;
-        case 'rest': tip = 'チャンス！ 今のうちに巻こう'; break;
-        default: tip = '巻いて寄せよう（テンションが赤くなる前に）';
+        case 'run': tip = fv.assist ? '走ってる！ 少し待とう' : '走ってる！ 巻かずにドラグに任せて耐える'; break;
+        case 'side_run': tip = fv.assist ? `魚が${side}へ走ってる` : `魚が${side}へ横走り → 竿を${opp}へ（横にドラッグ）`; break;
+        case 'dive': tip = fv.assist ? '底へ突っ込む！ 耐えよう' : '底へ突っ込む！ 竿を立ててためる'; break;
+        case 'wedged': tip = fv.assist ? '根に入られた！ 少し待とう' : '根に入られた！ 竿を立ててゆっくり耐える'; break;
+        case 'headshake': tip = fv.assist ? '首振り！ 巻くのを止めて' : '首振り！ 竿を立てて衝撃を逃がす'; break;
+        case 'rest': tip = fv.auto ? 'チャンス！ 巻いてます' : 'チャンス！ 今のうちに巻こう'; break;
+        default: tip = fv.auto ? '自動で巻いて寄せてます' : '巻いて寄せよう（赤くなる前に離す）';
       }
       const l1 = `${fv.known ? `${fv.name} 約${Math.round(fv.sizeCm)}cm` : '何かが掛かった！'} ｜ 距離 ${fv.dist.toFixed(1)}m`;
       const ih = `${l1}<br><span style="color:#ffd37a">${tip}</span>`;
