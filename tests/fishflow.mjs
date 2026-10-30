@@ -115,9 +115,21 @@ export async function fishFlow(ctx) {
   await F(page, () => { window.__rfw.fishing.pose(80, 0); }); await adv(page, 0.3); s = await fst(page);
   rec(suite, 'P2 fight: 竿の曲がり(rodBend)が表示に反映', s.rodBend > 0.01, `bend=${s.rodBend}`);
   await F(page, () => window.__rfw.fishing.pose(null, null));
-  const bot = await F(page, () => window.__rfw.fishing.bot(150));
+  let bot = await F(page, () => window.__rfw.fishing.bot(150));
+  // バレ(確率)はゲーム仕様。LANDEDに至るまで最大4回までやり直す（失敗系は別テストで確認）
+  let landTry = 1, lostTries = [];
+  while (bot.result !== 'LANDED' && landTry < 4) {
+    lostTries.push(bot.result);
+    await F(page, () => window.__rfw.fishing.dismiss(true)); await adv(page, 0.3);
+    if ((await fst(page)).phase !== 'ready') await adv(page, 30);
+    await castToWait(page, touch);
+    const hk = await biteAndHook(page, touch, 'aji', 20);
+    if (!hk.ok) break;
+    await adv(page, 2); landTry++;
+    bot = await F(page, () => window.__rfw.fishing.bot(150));
+  }
   s = await fst(page);
-  rec(suite, 'P2 fight: 完了して取り込み成功(LANDED)', bot.result === 'LANDED' && s.phase === 'result', JSON.stringify(bot));
+  rec(suite, 'P2 fight: 完了して取り込み成功(LANDED)', bot.result === 'LANDED' && s.phase === 'result', JSON.stringify(bot) + ` attempts=${landTry}` + (lostTries.length ? ' lost:' + lostTries.join(',') : ''));
   await adv(page, 0.3); await settle(page);
   s = await fst(page);
   rec(suite, 'P2 landing: 魚種とサイズのカード・3D魚が出る', s.resultShown && /アジ/.test(s.resultText) && /cm/.test(s.resultText) && s.catchShown, (s.resultText || '').replace(/\s+/g, ' ').slice(0, 80));
@@ -222,6 +234,30 @@ export async function fishFlow(ctx) {
       await sleep(200); await adv(page, 1);
       const x = await fst(page);
       rec(suite, 'P2 上フリックでもキャストできる', x.phase === 'wait' || x.phase === 'flight', `before=${s.phase} phase=${x.phase} log=${(x.log || []).slice(-6).join('>')} toast=${await page.evaluate(() => document.getElementById("toast").textContent)} inp=${JSON.stringify(x.inp)} pre=${pre} flk=${await page.evaluate(() => (window.__flk||[]).join(','))} resCard=${x.resultShown} panel=${await page.evaluate(() => document.getElementById('panel').classList.contains('open'))}`);
+    }
+  }
+  // ---- エサ消耗 / エサ取り / ヒント ----
+  s = await fst(page);
+  if (s.phase !== 'ready' && s.phase !== 'wait') { await F(page, () => window.__rfw.fishing.advance(30)); }
+  s = await fst(page);
+  if (s.phase === 'ready') await castToWait(page, touch);
+  s = await fst(page);
+  if (s.phase === 'wait') {
+    await F(page, () => window.__rfw.fishing.setRig({ depthM: 1.5, baitId: 'okiami' }));
+    const b0 = (await fst(page)).baitLife, nb0 = (await fst(page)).snap?.nibbles ?? 0;
+    await F(page, () => window.__rfw.fishing.nibble(1)); let x = await fst(page);
+    const b1 = x.baitLife;
+    rec(suite, 'P2 エサ取り: エサ取り(nibble)でエサが減る', b1 < b0 && (x.snap?.nibbles ?? 0) > nb0, `bait ${b0.toFixed(2)}→${b1.toFixed(2)}`);
+    await F(page, () => window.__rfw.fishing.nibble(20)); x = await fst(page);
+    rec(suite, 'P2 エサ取り: エサを取り切られるとエサ切れ(baitLife≦0.05)になる', x.baitLife <= 0.05, `bait=${x.baitLife.toFixed(2)}`);
+    s = await fst(page);
+    if (s.phase === 'wait') {
+      await F(page, () => window.__rfw.fishing.quiet());
+      const lg0 = (await fst(page)).log.filter((k) => k === 'hint').length;
+      await adv(page, 1);
+      const x = await fst(page);
+      const toastTxt = await page.evaluate(() => document.getElementById('toast')?.textContent || '');
+      rec(suite, 'P2 ヒント: しばらく釣れないと改善ヒントが出る', x.log.filter((k) => k === 'hint').length > lg0 || /💡/.test(toastTxt), toastTxt.slice(0, 80));
     }
   }
   await F(page, () => window.__rfw.fishing.freeze(false));

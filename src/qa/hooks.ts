@@ -64,6 +64,10 @@ export function installQaHooks(c: any) {
       reel(on: boolean) { c.fishing.setReel(on); },
       raise(on: boolean) { c.fishing.setRaise(on); },
       dismiss(release = false) { c.fishing.closeResult(release); },
+      /** 「しばらく釣れていない」状態にする（ヒント試験用） */
+      quiet() { guard(); const q = c.fishing.session; q.sinceBite = 60; q.hintT = 9; q.lastHint = ''; },
+      /** 小魚のエサ取り（nibble）をn回起こす */
+      nibble(n = 1) { guard(); const q = c.fishing.session as any; for (let i = 0; i < n; i++) q.onSimEvent({ kind: 'nibble' }); },
       boost(v: number) { guard(); c.fishing.session.boost = v; },
       setEnv(h: number) { guard(); c.fishing.session.setEnv(h); },
       rodTip() { const t = c.fishing.view.tip.clone().project(c.rig.camera); return { x: t.x, y: t.y }; },
