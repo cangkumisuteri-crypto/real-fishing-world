@@ -1,7 +1,7 @@
 /* REAL FISHING WORLD Phase1+2 QA.  node tests/qa.mjs [--url=https://...] [--only=webkit-iphone13] [--out=tests/out]
  * 注意: ヘッドレス＋ソフトウェアGL。FPSは実機の値ではない。実機iPhoneは未検証。 */
 import fs from 'fs'; import path from 'path';
-import { fishFlow, phaseLayouts } from './fishflow.mjs';
+import { fishFlow, phaseLayouts, auditFixes } from './fishflow.mjs';
 import { webkit, chromium, devices, serve, sleep, WK_ENV, CHROMIUM_ARGS, collect } from './lib.mjs';
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.split('=').slice(1).join('=') : d; };
 const OUT = path.resolve(arg('out', 'tests/out')); fs.mkdirSync(OUT, { recursive: true });
@@ -271,6 +271,7 @@ async function runSuite(suite, launcher, ctxOpts, opts = {}) {
     const sizes = opts.sizes || [[375, 667], [390, 844], [430, 932], [667, 375], [844, 390], [932, 430]];
     for (const [w, h] of sizes) await layoutCheck(page, suite, { width: w, height: h }, suite, true);
     for (const [w, h] of (opts.p2sizes || [[390, 844], [844, 390]])) await phaseLayouts({ page, suite, rec, touch, until, OUT }, { width: w, height: h }, hudRects);
+    await auditFixes({ page, suite, rec, touch, until, OUT }, hudRects);
     // night / day sanity
     await page.setViewportSize({ width: sizes[1][0], height: sizes[1][1] });
 

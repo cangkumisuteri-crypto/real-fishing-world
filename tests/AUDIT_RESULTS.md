@@ -72,3 +72,17 @@ Rules: no HUD overlap, inside viewport, buttons ≥44x44, gaps ≥12 px, not obs
 
 ## Artifacts
 Screenshots: tests/out/shots.b2-se/, tests/out/shots.b2-13/, tests/out/shots.live-cr/ (X1–X10), tests/out/shots.b2-cr/. Failure artifacts: tests/out/artifacts.b2-se/, artifacts.b2-13/. Logs: tests/out/run.*.log, /tmp/runA..D.log.
+
+## Chromium local on the CURRENT dist (run b2-cr) — PARTIAL
+Stopped by my 720 s timeout (box was slow) after 25 of 32 tests: **QA-01…QA-15, QA-16, QA-12H, QA-13H, QA-X1, X2, X3 all PASS, 0 failures** on the 20:05 dist. **QA-X4…X10 were NOT run (UNTESTED) on local Chromium for the current dist.** Those same checks PASS on the old 19:34 dist (run B, 31/31) and on the LIVE site (run C, 32/32 incl. X10), and X4–X10 PASS on WebKit SE/13 current dist (X4 freeze/resume is only a synthetic event in WebKit).
+Log: tests/out/run.b2-cr.log. Preview servers on :4180/:4181 were stopped.
+
+## Overall
+- Current dist: no FAIL except BUG-1 (320 px width only, SE 1st-gen class) plus load-flaky QA-02/QA-05 samples that pass alone.
+- No walls/sea/stuck-stick/multi-touch/rotate/background/reload break found on the current dist (emulation only).
+
+---
+## Fix status (Phase 2, 2026-10-30 JST)
+- BUG-1 (320px chip truncated mid-character): FIXED – narrow (<=340px) uses abbreviated chip text + wrapping/shrink CSS. Verified by qa.mjs `BUG-1` checks (320x568 / 568x320) and e2e QA-08/12/14 at webkit-iphone-se (31 passed, 1 skipped).
+- BUG-2 (any unhandled rejection showed fatal overlay): FIXED – overlay only for errors before boot completes; later rejections are logged (`__rfwWarnings`) + small toast. Verified by qa.mjs `BUG-2`, e2e X10.
+- BUG-3 (tutorial toast overlapped 走る at 320x568): FIXED – move-mode toast positioned above the button row. Verified by qa.mjs `BUG-3` (rect intersection with run/joystick/other buttons = none).

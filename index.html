@@ -46,6 +46,11 @@ button{font:inherit;color:inherit;border:0;margin:0;padding:0;cursor:pointer;tou
   font-size:12px;line-height:1.25;font-weight:700;text-shadow:0 1px 2px #000;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center}
 .chip div{overflow:hidden;text-overflow:ellipsis}
 .chip small{font-weight:600;opacity:.9;font-size:11px}
+@media (max-width:340px){
+  .chip{padding:3px 4px;font-size:10px;line-height:1.15}
+  .chip small{font-size:9.5px}
+  .chip div,.chip small{white-space:normal;overflow-wrap:anywhere;overflow:hidden;max-height:2.4em}
+}
 #chipF{right:calc(var(--sa-r) + 76px)}
 .main{right:calc(var(--sa-r) + 20px);bottom:calc(var(--sa-b) + 32px);width:var(--main);height:var(--main);border-radius:50%;background:var(--accent);border-color:#fff;font-size:12px}
 .main .ic{font-size:22px}
@@ -73,6 +78,8 @@ body[data-mode="move"] .fs,body[data-mode="fish"] .mv{display:none!important}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sa-b) + 32px + var(--main) + 84px);max-width:calc(100vw - 32px);padding:9px 14px;border-radius:12px;background:rgba(10,18,32,.86);
   border:1px solid rgba(255,255,255,.3);font-size:14px;font-weight:700;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;text-shadow:0 1px 2px #000}
 #toast.show{opacity:1}
+/* 移動モード：トーストは「走る」ボタン（左下）の上に出して重ならないようにする */
+body[data-mode="move"] #toast{bottom:calc(var(--sa-b) + 24px + var(--joy) + var(--gap)*2 + 56px)}
 #hintLine{position:absolute;left:0;right:0;bottom:calc(var(--sa-b) + 4px);text-align:center;font-size:10px;opacity:.7;pointer-events:none;text-shadow:0 1px 2px #000}
 
 /* ---- Phase 2 釣りUI ---- */
@@ -227,7 +234,16 @@ body[data-phase="result"] #toast{display:none}
   }
   window.__rfwShowError=show;
   window.addEventListener('error',function(ev){ var t=ev.message||'Error'; if(ev.target&&ev.target!==window&&ev.target.src) t='読み込み失敗: '+ev.target.src; show(t,(ev.error&&ev.error.stack)||(ev.filename+':'+ev.lineno+':'+ev.colno)); },true);
-  window.addEventListener('unhandledrejection',function(ev){ var r=ev.reason; show('Promise error: '+(r&&r.message||r),(r&&r.stack)||''); });
+  // 未処理のPromise拒否：起動前は致命的として表示。起動後（音声・SW等）は致命的ではないので、ログ＋小さなトーストのみ。
+  window.__rfwWarnings=[];
+  window.addEventListener('unhandledrejection',function(ev){
+    var r=ev.reason, msg=String((r&&r.message)||r);
+    if(!window.__rfwBooted){ show('Promise error: '+msg,(r&&r.stack)||''); return; }
+    ev.preventDefault();
+    window.__rfwWarnings.push(msg);
+    try{ console.warn('[non-fatal rejection]',msg); }catch(_){}
+    try{ var t=document.getElementById('toast'); if(t && !t.classList.contains('show')){ t.textContent='⚠ 一部の機能で問題が起きました（ゲームは続行できます）'; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },2600); } }catch(_){}
+  });
   setTimeout(function(){ if(!window.__rfwBooted){ var l=document.getElementById('loadMsg'); if(l) l.textContent='起動に時間がかかっています…（通信が遅い可能性があります）'; } },9000);
 })();
 </script>

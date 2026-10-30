@@ -303,3 +303,57 @@ export async function phaseLayouts(ctx, vp, hudRects) {
   await F(page, () => window.__rfw.fishing.freeze(false));
   await tap(page, touch, '#btnExit'); await sleep(400);
 }
+
+/** 監査(AI-5)指摘 BUG-1/2/3 の修正確認＋320x568でのQA 8/12/14相当 */
+export async function auditFixes(ctx, hudRects) {
+  const { page, suite, rec, touch, until, OUT } = ctx;
+  const rectOf = (sel) => page.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }, sel);
+  const hit = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+  for (const vp of [{ width: 320, height: 568 }, { width: 568, height: 320 }]) {
+    const tag = `${vp.width}x${vp.height}`;
+    await page.setViewportSize(vp); await settle(page);
+    await page.evaluate(() => { document.body.dataset.mode = 'move'; });
+    // QA-8: 水際でだけ釣り開始が有効 / QA-14: 回転・リサイズ後も操作可
+    for (const [name, pos] of [['水際', { x: -8, z: 8.6, yaw: 0 }], ['陸', { x: -20, z: 15.5, yaw: 0 }]]) {
+      await page.evaluate((s) => window.__rfw.teleport(s.x, s.z, s.yaw), pos); await sleep(700); await settle(page);
+      const c = await page.evaluate(() => {
+        const bad = []; for (const id of ['chipTop', 'chipSub']) { const e = document.getElementById(id); const cs = getComputedStyle(e); if (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1) bad.push(`${id}: ${e.scrollWidth}x${e.scrollHeight} > ${e.clientWidth}x${e.clientHeight}`); }
+        const chip = document.getElementById('chip'); if (chip.scrollHeight > chip.clientHeight + 1 || chip.scrollWidth > chip.clientWidth + 1) bad.push(`chip: ${chip.scrollWidth}x${chip.scrollHeight} > ${chip.clientWidth}x${chip.clientHeight}`);
+        return { bad, top: document.getElementById('chipTop').textContent, sub: document.getElementById('chipSub').textContent, btn: document.getElementById('btnFish').dataset.state };
+      });
+      rec(suite, `BUG-1 ${tag} 情報チップ(${name}): 文字が途中で切れない（折り返し/短縮）`, c.bad.length === 0, `${c.top} / ${c.sub} ${c.bad.join('; ')}`);
+      if (name === '水際') { rec(suite, `QA-8 ${tag}: 水際で釣り開始が有効`, c.btn === 'ready', c.btn); await page.screenshot({ path: path.join(OUT, `${suite}_audit_${tag}_chip.png`) }); }
+      else rec(suite, `QA-8 ${tag}: 陸では釣り開始が無効`, c.btn === 'disabled', c.btn);
+    }
+    // 場所ノート入りチップ（長め）
+    const long = await page.evaluate(() => { const h = window.__rfw; document.getElementById('chipSub').textContent = '「潮風つり具 しおかぜ」付近'; const e = document.getElementById('chipSub'); return { sw: e.scrollWidth, cw: e.clientWidth, sh: e.scrollHeight, ch: e.clientHeight }; });
+    rec(suite, `BUG-1 ${tag} 長い場所名でも2行以内に収まる`, long.sh <= long.ch + 1 && long.sw <= long.cw + 1, JSON.stringify(long));
+    // QA-12/14: レイアウト（重なり・画面外・44px）
+    for (const mode of ['move', 'fish']) {
+      await page.evaluate((m) => { document.body.dataset.mode = m; }, mode); await settle(page);
+      const rs = await hudRects(page); const bad = [];
+      for (let i = 0; i < rs.length; i++) {
+        const a = rs[i];
+        if (a.x < -0.5 || a.y < -0.5 || a.x + a.w > vp.width + 0.5 || a.y + a.h > vp.height + 0.5) bad.push(`out:${a.id}`);
+        if (!a.info && (a.w < 43.5 || a.h < 43.5)) bad.push(`small:${a.id}`);
+        for (let j = i + 1; j < rs.length; j++) if (hit(a, rs[j])) bad.push(`overlap:${a.id}×${rs[j].id}`);
+      }
+      rec(suite, `QA-12/14 ${tag} ${mode}: 重なり/画面外/44px なし (${rs.length} elems)`, bad.length === 0, bad.join(', '));
+    }
+    await page.evaluate(() => { document.body.dataset.mode = 'move'; });
+    // BUG-3: 移動モードのチュートリアルトースト vs 走るボタン
+    await page.evaluate(() => { const t = document.getElementById('toast'); t.textContent = '左をドラッグで移動／右をスワイプで視点'; t.classList.add('show'); }); await settle(page);
+    const tr = await rectOf('#toast'); const bad3 = [];
+    for (const sel of ['#btnRun', '#joyRing', '#btnFish', '#btnBag', '#btnMenu', '#btnMap', '#btnCam']) { const r = await rectOf(sel); const disp = await page.evaluate((s) => getComputedStyle(document.querySelector(s)).display, sel); if (disp !== 'none' && hit(tr, r)) bad3.push(sel); }
+    rec(suite, `BUG-3 ${tag}: チュートリアルトーストが走る/操作ボタンと重ならない`, bad3.length === 0, `${bad3.join(',')} toast=${JSON.stringify(tr)}`);
+    await page.screenshot({ path: path.join(OUT, `${suite}_audit_${tag}_toast.png`) });
+    await page.evaluate(() => document.getElementById('toast').classList.remove('show'));
+  }
+  // BUG-2: 起動後の非致命的な未処理rejectionで赤い全画面オーバーレイを出さない
+  const before = await page.evaluate(() => (window.__rfwErrors || []).length);
+  await page.evaluate(() => { Promise.reject(new Error('QA non-fatal audio rejection')); });
+  await sleep(500);
+  const r = await page.evaluate(() => ({ open: document.getElementById('err').classList.contains('open') || document.getElementById('err').classList.contains('show'), errs: (window.__rfwErrors || []).length, warns: (window.__rfwWarnings || []).slice(-1)[0] || null, playing: document.body.classList.contains('playing') }));
+  rec(suite, 'BUG-2 起動後の未処理Promise拒否は致命オーバーレイを出さず、警告として記録される', !r.open && r.errs === before && /QA non-fatal/.test(r.warns || '') && r.playing, JSON.stringify(r));
+  await page.setViewportSize({ width: 390, height: 844 }); await settle(page);
+}

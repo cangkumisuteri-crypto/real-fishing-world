@@ -50,8 +50,9 @@ export class Hud {
   }
 
   updateChip(time: string, demoTime: boolean, site: FishingSite, placeNote: string) {
-    $('chipTop').textContent = `波戸浦港 ${time}${demoTime ? '（デモ時刻）' : ' 実時刻'}`;
-    $('chipSub').textContent = placeNote || (site.can ? `釣れる水際 ✔ 水深約${site.depth.toFixed(1)}m` : '水辺に近づくと釣れるよ');
+    const narrow = window.innerWidth <= 340; // iPhone SE(1st)等：短い文言にして途中で切れないようにする
+    $('chipTop').textContent = narrow ? `${time}${demoTime ? '(デモ)' : ''}` : `波戸浦港 ${time}${demoTime ? '（デモ時刻）' : ' 実時刻'}`;
+    $('chipSub').textContent = (narrow ? placeNote.replace(/（中身は準備中）$/, '') : placeNote) || (site.can ? (narrow ? `✔釣れる ${site.depth.toFixed(1)}m` : `釣れる水際 ✔ 水深約${site.depth.toFixed(1)}m`) : (narrow ? '水辺へ近づこう' : '水辺に近づくと釣れるよ'));
     const b = $('btnFish');
     b.classList.toggle('off', !site.can);
     b.dataset.state = site.can ? 'ready' : 'disabled';
