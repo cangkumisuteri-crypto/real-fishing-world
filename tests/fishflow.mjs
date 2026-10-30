@@ -3,6 +3,7 @@
 import path from 'path';
 import { sleep } from './lib.mjs';
 
+const settle = async (page) => { await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))))); await sleep(120); };
 const F = (page, fn, a) => page.evaluate(fn, a);
 const fst = (page) => page.evaluate(() => window.__rfw.fishing.state());
 // 実際の座標をタップ（アニメーション中のボタンでも押せる＝他要素に隠れていないことも検証）
@@ -25,7 +26,7 @@ const advUntil = async (page, phase, maxSec, step = 0.1) => {
   return (await fst(page)).phase === phase;
 };
 async function toFishing(page, touch, until, site = { x: -8, z: 8.6, yaw: 0 }) {
-  await page.evaluate((s) => window.__rfw.teleport(s.x, s.z, s.yaw), site); await sleep(500);
+  await page.evaluate((s) => window.__rfw.teleport(s.x, s.z, s.yaw), site); await settle(page);
   await tap(page, touch, '#btnFish');
   await until(page, () => window.__rfw.state().mode === 'fish' && window.__rfw.fishing.state().phase === 'ready');
   await sleep(300);
@@ -52,7 +53,7 @@ async function castToWait(page, touch) {
   await tap(page, touch, '#btnAction'); await sleep(100);
   await adv(page, 0.5);
   await advUntil(page, 'wait', 6);
-  await sleep(600); // 描画フレームを1回以上回してビュー状態を更新
+  await settle(page); // 描画フレームを1回以上回してビュー状態を更新
   return aim;
 }
 
@@ -71,7 +72,7 @@ export async function fishFlow(ctx) {
   rec(suite, 'P2 cast: ウキが3Dで出現し画面内に見える', s.phase === 'wait' && s.floatShown && nd && Math.abs(nd.x) < 1 && Math.abs(nd.y) < 1 && nd.z < 1, `phase=${s.phase} ndc=${nd ? nd.x.toFixed(2) + ',' + nd.y.toFixed(2) : 'null'} dist=${s.snap?.castDist}`);
   rec(suite, 'P2 cast: 魚影(近傍の魚)が存在 / 水深が分かる', s.shadows >= 0 && s.seabed > 1, `shadows=${s.shadows} seabed=${s.seabed?.toFixed?.(1)}`);
   rec(suite, 'P2 cast: SFX/ハプティクス呼び出しが発生', (s.sfx?.cast ?? s.sfx?.total ?? 0) > 0 || Object.values(s.sfx || {}).some((v) => v > 0), JSON.stringify(s.sfx));
-  await sleep(500);
+  await settle(page);
   await page.screenshot({ path: path.join(OUT, `${suite}_p2_wait.png`) });
   // ---- 空合わせ ----
   const hs0 = (await fst(page)).log.length;
@@ -91,15 +92,16 @@ export async function fishFlow(ctx) {
   await adv(page, 0.2);
   s = await fst(page);
   rec(suite, 'P2 bite: 前アタリ→本アタリ(bite)に到達', s.phase === 'bite' && s.biteEvents > nb0 && sawPre, `phase=${s.phase} pre=${sawPre} log=${(s.log || []).slice(-5).join('>')}`);
-  await sleep(600);
+  await settle(page);
   await page.screenshot({ path: path.join(OUT, `${suite}_p2_bite.png`) });
   await tap(page, touch, '#btnAction'); await adv(page, 0.4);
   s = await fst(page);
   let hkTries = 1;
   if (s.phase !== 'fight') { const h2 = await biteAndHook(page, touch, 'aji', 20); hkTries += h2.tries; s = await fst(page); }
   rec(suite, 'P2 合わせ(ボタン)でフッキング→ファイト開始（針掛かりは確率。やり直しあり）', s.phase === 'fight', `phase=${s.phase} tries=${hkTries} log=${(s.log || []).slice(-5).join('>')}`);
-  await adv(page, 3); await sleep(600);
+  await adv(page, 3); await settle(page);
   s = await fst(page);
+  for (let i = 0; i < 40 && !((s.ui || {}).ten && (s.ui || {}).rod && (s.ui || {}).reel); i++) { await settle(page); await sleep(250); s = await fst(page); } // 低速GL対策でUIフレームを待つ
   const ui = s.ui || {};
   rec(suite, 'P2 fight: テンション/竿角度/ドラグ/巻くのUI表示', ui.ten && ui.rod && ui.reel, JSON.stringify(ui).slice(0, 160));
   await page.screenshot({ path: path.join(OUT, `${suite}_p2_fight.png`) });
@@ -116,7 +118,7 @@ export async function fishFlow(ctx) {
   const bot = await F(page, () => window.__rfw.fishing.bot(150));
   s = await fst(page);
   rec(suite, 'P2 fight: 完了して取り込み成功(LANDED)', bot.result === 'LANDED' && s.phase === 'result', JSON.stringify(bot));
-  await adv(page, 0.3); await sleep(700);
+  await adv(page, 0.3); await settle(page);
   s = await fst(page);
   rec(suite, 'P2 landing: 魚種とサイズのカード・3D魚が出る', s.resultShown && /アジ/.test(s.resultText) && /cm/.test(s.resultText) && s.catchShown, (s.resultText || '').replace(/\s+/g, ' ').slice(0, 80));
   await page.screenshot({ path: path.join(OUT, `${suite}_p2_result.png`) });
@@ -125,7 +127,7 @@ export async function fishFlow(ctx) {
   s = await fst(page);
   rec(suite, 'P2 landing: 「キープ」で閉じて ready に戻る', s.phase === 'ready' && !s.resultShown, `phase=${s.phase}`);
   // ---- 図鑑 / 仕掛けパネル ----
-  await tap(page, touch, '#btnExit'); await sleep(500);
+  await tap(page, touch, '#btnExit'); await settle(page);
   await tap(page, touch, '#btnBag'); await sleep(400);
   const zk = await F(page, () => ({ open: document.getElementById('panel').classList.contains('open'), txt: document.getElementById('panelBody').textContent }));
   rec(suite, 'P2 図鑑パネルにアジが記録表示される', zk.open && /アジ/.test(zk.txt) && /1/.test(zk.txt), zk.txt.replace(/\s+/g, ' ').slice(0, 80));
@@ -154,7 +156,7 @@ export async function fishFlow(ctx) {
   const zk2 = await F(page, () => { const sv = JSON.parse(localStorage.getItem('realFishingWorld.save')); return { z: sv.zukan, n: sv.catchLog.length }; });
   rec(suite, 'P2 保存: リロード後も図鑑・釣果ログが残る', zk2.z?.aji?.count === 1 && zk2.n >= 1, JSON.stringify(zk2).slice(0, 100));
   if (touch) await page.tap('#play'); else await page.click('#play');
-  await until(page, () => document.body.classList.contains('playing')); await sleep(600);
+  await until(page, () => document.body.classList.contains('playing')); await settle(page);
   await F(page, () => window.__rfw.fishing.setEnv(17.5));
   // ---- 自然なアタリ（forceBite無し） ----
   await toFishing(page, touch, until);
@@ -189,7 +191,7 @@ export async function fishFlow(ctx) {
   s = await fst(page);
   rec(suite, 'P2 失敗系: ラインブレイク等(LINE_BREAK/HOOK_OUT)に到達でき結果カードが出る', !!brk, brk ? JSON.stringify(brk) : 'not reached');
   if (brk) {
-    await adv(page, 0.3); await sleep(500); s = await fst(page);
+    await adv(page, 0.3); await settle(page); s = await fst(page);
     rec(suite, 'P2 失敗系: 結果カードがOKで閉じられ統計が更新', s.resultShown && (s.save.stats.lineBreaks + s.save.stats.hookOuts) >= 1, `${(s.resultText || '').replace(/\s+/g, ' ').slice(0, 60)} stats=${JSON.stringify(s.save.stats)}`);
     await page.screenshot({ path: path.join(OUT, `${suite}_p2_fail.png`) });
     await tap(page, touch, '#rcOk'); await sleep(200);
@@ -208,8 +210,9 @@ export async function fishFlow(ctx) {
     if (s.phase === 'wait') { /* 巻き上げ */ await F(page, () => window.__rfw.fishing.reel(true)); for (let i = 0; i < 60 && (await fst(page)).phase !== 'ready'; i++) await adv(page, 0.5); await F(page, () => window.__rfw.fishing.reel(false)); }
     s = await fst(page);
     if (s.phase === 'ready') {
-      await sleep(500);
+      await settle(page);
       const vp = page.viewportSize();
+      const pre = await page.evaluate(() => { const i = window.__rfw.fishing.state().inp; const t = document.getElementById('touch'); window.__flk = []; ['pointerdown','pointerup'].forEach(n => window.addEventListener(n, (e) => window.__flk.push(n + ':' + e.pointerId + ':' + (e.target && e.target.id)), true)); return JSON.stringify(i) + ' touchDisp=' + getComputedStyle(t).display + ' pe=' + getComputedStyle(t).pointerEvents; });
       await page.evaluate(([w, h]) => {
         const t = document.getElementById('touch'); const mk = (type, x, y) => new PointerEvent(type, { pointerId: 31, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true, button: 0 });
         const x = w * 0.75, y = h * 0.6;
@@ -218,7 +221,7 @@ export async function fishFlow(ctx) {
       }, [vp.width, vp.height]);
       await sleep(200); await adv(page, 1);
       const x = await fst(page);
-      rec(suite, 'P2 上フリックでもキャストできる', x.phase === 'wait' || x.phase === 'flight', `before=${s.phase} phase=${x.phase} log=${(x.log || []).slice(-6).join('>')} toast=${await page.evaluate(() => document.getElementById("toast").textContent)} inp=${JSON.stringify(x.inp)} resCard=${x.resultShown} panel=${await page.evaluate(() => document.getElementById('panel').classList.contains('open'))}`);
+      rec(suite, 'P2 上フリックでもキャストできる', x.phase === 'wait' || x.phase === 'flight', `before=${s.phase} phase=${x.phase} log=${(x.log || []).slice(-6).join('>')} toast=${await page.evaluate(() => document.getElementById("toast").textContent)} inp=${JSON.stringify(x.inp)} pre=${pre} flk=${await page.evaluate(() => (window.__flk||[]).join(','))} resCard=${x.resultShown} panel=${await page.evaluate(() => document.getElementById('panel').classList.contains('open'))}`);
     }
   }
   await F(page, () => window.__rfw.fishing.freeze(false));
@@ -227,11 +230,11 @@ export async function fishFlow(ctx) {
 /** 各フェーズでHUDレイアウト（重なり/画面外/44px）を検査 */
 export async function phaseLayouts(ctx, vp, hudRects) {
   const { page, suite, rec, touch, until, OUT } = ctx;
-  await page.setViewportSize(vp); await sleep(500);
+  await page.setViewportSize(vp); await settle(page);
   await toFishing(page, touch, until);
   await F(page, () => window.__rfw.fishing.freeze(true));
   const check = async (tag) => {
-    await sleep(450);
+    await settle(page);
     const rs = await hudRects(page); const bad = [];
     for (let i = 0; i < rs.length; i++) {
       const a = rs[i];

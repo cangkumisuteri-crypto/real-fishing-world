@@ -33,7 +33,7 @@ export function installQaHooks(c: any) {
           floatShown: v.floatShown, floatNdc: { x: fp.x, y: fp.y, z: fp.z }, shadows: v.shadowCount, rodBend: v.rodBend, catchShown: v.catchShown, fightFish: v.fightFishShown,
           fx: s.fx, fz: s.fz, seabed: s.seabed, baitLife: s.baitLife, snag: s.snag, stats: { ...s.stats }, fight: s.fight ? { sp: s.fight.sp.id, nameJa: s.fight.sp.nameJa, dist: s.fight.dist, tension: s.fight.tension, mode: s.fight.mode, S: s.fight.S, result: s.fight.result, sizeCm: s.fight.sizeCm } : null,
           sfx: { ...f.sfx.counts, state: f.sfx.state, enabled: f.sfx.enabled }, hap: { ...f.hap.counts, shake: f.hap.shake, canVibrate: f.hap.canVibrate, enabled: f.hap.enabled },
-          biteEvents: f.biteEvents, inp: { flickOn: c.input.flickOn, lookId: c.input.lookId, fightMode: c.input.fightMode, enabled: c.input.enabled }, resultShown: f.resultShown, resultText: f.ui.e.result.textContent, log: f.log.slice(-30),
+          biteEvents: f.biteEvents, inp: { flickOn: c.input.flickOn, lookId: c.input.lookId, fightMode: c.input.fightMode, enabled: c.input.enabled, active: f.active, yaw: c.player.yaw, land: f.session.landing(c.player.yaw, 0.6) }, resultShown: f.resultShown, resultText: f.ui.e.result.textContent, log: f.log.slice(-30),
           ui: { action: ui.action.textContent, actionClass: ui.action.className, reel: vis(ui.reel), ten: vis(ui.ten), power: vis(ui.power), rod: vis(ui.rod), bait: vis(ui.bait), info: ui.info.textContent, card: ui.card.textContent },
           save: { zukan: f.d.data.zukan, catchLog: f.d.data.catchLog.length, stats: { ...f.d.data.stats }, lastRig: f.d.data.lastRig },
         };

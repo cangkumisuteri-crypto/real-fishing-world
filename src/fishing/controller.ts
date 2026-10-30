@@ -181,6 +181,7 @@ export class FishingController {
   qaFreeze = false;
   update(dt: number, t: number, dayLight: number) {
     if (!this.qaFreeze) this.step(dt);
+    else if (this.active) { const ph = this.session.phase; this.d.input.flickOn = (ph === 'ready' || ph === 'aim') && !this.d.hud.panelOpen; }
     const s = this.session;
     this.view.update(s, t, dt, dayLight, this.active);
     if (!this.active) return;
