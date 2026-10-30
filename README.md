@@ -16,3 +16,7 @@ node tests/qa.mjs  # Playwright QA（要 dist/、WebKit/Chromium）
 URL パラメータ: `?t=21`（時刻をデモ指定）, `?q=low|mid|high`, `?qa=1`（QA フック）。
 
 テクスチャは CC0（`src/assets/textures/LICENSE.txt`）。
+
+## Phase 2（ウキ釣り）
+キャスト（狙い→パワー／上フリック）→ 3D ウキ・ライン・オモリ → 前アタリ／エサ取り／エサ消耗 → 合わせ → ファイト（ドラグ・巻き・竿角度・テンション・走り・根潜り・疲労・ラインブレイク・バレ）→ 取り込み（図鑑・釣果ログ・セーブ v2）。
+振動は `navigator.vibrate`（非対応の iOS は画面揺れ＋音）。実機 iPhone での操作感・fps は未検証。QA: `node tests/qa.mjs`（`?qa=1` で `__rfw.fishing` フックを使う決定的テスト）。
